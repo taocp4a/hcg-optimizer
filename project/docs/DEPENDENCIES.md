@@ -23,8 +23,8 @@ Principle: use **only pure-Rust crates that build for WASM (wasm32-unknown-unkno
 |---|---|---|
 | `crc32fast` 1.4 | hcg-format | Image ID (supports a custom initial value 'HDCG' via `new_with_initial`) |
 | `thiserror` 2 | hcg-format, hcg-app, hcg-adapters | Error types |
-| `serde` 1 (derive) | hcg-app | Serialize the report (`report.json`) |
-| `serde_json` 1 | hcg-app; hcg-format, hcg-adapters (dev only) | Write `report.json`; tests read JSON fixtures |
+| `serde` 1 (derive) | hcg-app | Serialize the structured report for viewers |
+| `serde_json` 1 | hcg-app; hcg-format, hcg-adapters (dev only) | Report JSON for viewers; tests read JSON fixtures |
 | `zip` 9.3 | hcg-adapters | Read/write zip. `default-features = false` + `deflate-flate2` only (no C libraries, no bzip2/zstd/lzma/AES) |
 | `flate2` 1 | hcg-adapters | Selects the pure-Rust `rust_backend` (miniz_oxide) for zip's deflate, so it builds for wasm32 |
 | `encoding_rs` 0.8 | hcg-adapters | Decode CP949 entry names (`EUC_KR` = WHATWG's windows-949) |

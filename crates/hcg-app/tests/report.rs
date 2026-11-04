@@ -11,7 +11,7 @@ use hcg_app::apply::{BundleResult, apply};
 use hcg_app::package::{InputFile, NameEncoding};
 use hcg_app::policy::{KeepReason, PlannedAction, ResizePolicy};
 use hcg_app::ports::{ImageFormat, ImageProbe, NoProgress};
-use hcg_app::report::{Report, RunNotes, Status, build_report, to_json};
+use hcg_app::report::{RunNotes, Status, build_report, to_json};
 use hcg_app::run::run;
 use hcg_format::parse;
 
@@ -188,9 +188,10 @@ fn report_is_deterministic() {
     );
 }
 
-/// The output package carries report.json in every bundle folder, including failed ones.
+/// The zip gets each report rendered as report.txt (UTF-8 BOM + CRLF), including failed
+/// bundles; viewers get the same reports as structured data.
 #[test]
-fn package_writes_report_json() {
+fn package_writes_rendered_report_txt() {
     let mut broken = sample_hcg("v00_empty.hcg");
     broken[8] = 0x77;
     let input = |path: &str, bytes: Vec<u8>| InputFile {
@@ -205,24 +206,36 @@ fn package_writes_report_json() {
     ];
     let policy = ResizePolicy::default();
     let result = run(files, &FakeCodec::default(), &policy, &mut NoProgress).expect("ok");
-    let out = result.package(&policy);
-    let reports: Vec<(&str, serde_json::Value)> = out
-        .iter()
-        .filter(|f| f.path.ends_with("/report.json"))
-        .map(|f| {
-            (
-                f.path.as_str(),
-                serde_json::from_slice(&f.bytes).expect("valid JSON"),
-            )
-        })
-        .collect();
+
+    let reports = result.reports(&policy);
     assert_eq!(reports.len(), 2);
-    assert_eq!(reports[0].0, "old_optimized/report.json");
-    assert_eq!(reports[0].1["status"], "failed");
-    assert_eq!(reports[1].1["status"], "ok");
-    assert_eq!(reports[1].1["schema"], 1);
-    assert_eq!(reports[1].1["other_files"]["unpaired"][0], "notes.txt");
+    assert_eq!(reports[0].status, Status::Failed);
+    assert_eq!(reports[1].status, Status::Ok);
+    assert_eq!(reports[1].other_files.unpaired, ["notes.txt"]);
     // v12 has no image folder here: its two references are one missing file.
-    assert_eq!(reports[1].1["missing"].as_array().map(Vec::len), Some(1));
-    let _: &Report; // the type is part of the public surface
+    assert_eq!(reports[1].missing.len(), 1);
+    let json: serde_json::Value = serde_json::from_str(&to_json(&reports[1])).expect("valid JSON");
+    assert_eq!(json["schema"], 1);
+
+    let out = result.package(&policy);
+    let texts: Vec<_> = out
+        .iter()
+        .filter(|f| f.path.ends_with("/report.txt"))
+        .collect();
+    let paths: Vec<_> = texts.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(
+        paths,
+        ["old_optimized/report.txt", "v12_optimized/report.txt"]
+    );
+    assert!(
+        !out.iter().any(|f| f.path.ends_with(".json")),
+        "no JSON in the zip"
+    );
+    for (file, report) in texts.iter().zip(&reports) {
+        let expected = format!("\u{feff}{}", report.text.replace('\n', "\r\n"));
+        assert_eq!(
+            String::from_utf8(file.bytes.clone()).expect("UTF-8"),
+            expected
+        );
+    }
 }

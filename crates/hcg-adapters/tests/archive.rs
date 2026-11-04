@@ -331,6 +331,6 @@ fn z5_zip_to_bundles_and_back() {
     );
     assert!(
         back.iter()
-            .any(|f| f.path == "v00_empty_optimized/report.json")
+            .any(|f| f.path == "v00_empty_optimized/report.txt")
     );
 }

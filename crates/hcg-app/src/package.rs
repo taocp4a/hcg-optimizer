@@ -118,8 +118,8 @@ pub struct PackagedBundle<'a> {
 }
 
 /// Lays out the output package. Each bundle goes into its own `<stem>_optimized/` folder with
-/// `<stem>.hcg`, the image folder `<stem>/` (if it has images), and `report.json`; a bundle that
-/// could not be processed gets only `report.json`. Extracting the result next to the original
+/// `<stem>.hcg`, the image folder `<stem>/` (if it has images), and `report.txt` (see
+/// [`text_file_bytes`]); a bundle that could not be processed gets only `report.txt`. Extracting the result next to the original
 /// therefore never overwrites it. Folder names are made unique if two bundles share a stem.
 pub fn output_files(results: &[PackagedBundle<'_>]) -> Vec<OutputFile> {
     let mut used: Vec<String> = Vec::new();
@@ -147,10 +147,18 @@ pub fn output_files(results: &[PackagedBundle<'_>]) -> Vec<OutputFile> {
             }
         }
         out.push(OutputFile {
-            path: format!("{root}/report.json"),
-            bytes: result.report.as_bytes().to_vec(),
+            path: format!("{root}/report.txt"),
+            bytes: text_file_bytes(result.report),
         });
     }
+    out
+}
+
+/// A text file Windows Notepad reads correctly, including old versions: UTF-8 with a byte-order
+/// mark and CRLF line endings.
+pub fn text_file_bytes(text: &str) -> Vec<u8> {
+    let mut out = vec![0xEF, 0xBB, 0xBF];
+    out.extend_from_slice(text.replace("\r\n", "\n").replace('\n', "\r\n").as_bytes());
     out
 }
 
@@ -322,12 +330,12 @@ mod tests {
             [
                 "a_optimized/a.hcg",
                 "a_optimized/a/1.jpg",
-                "a_optimized/report.json",
+                "a_optimized/report.txt",
                 "A_optimized_2/A.hcg",
-                "A_optimized_2/report.json",
-                "broken_optimized/report.json",
+                "A_optimized_2/report.txt",
+                "broken_optimized/report.txt",
             ]
         );
-        assert_eq!(out[2].bytes, b"report a");
+        assert_eq!(out[2].bytes, b"\xEF\xBB\xBFreport a");
     }
 }
