@@ -79,11 +79,6 @@ impl<'a> Reader<'a> {
         self.data.get(self.pos..self.pos.checked_add(n)?)
     }
 
-    /// The bytes consumed since `start`.
-    pub(crate) fn since(&self, start: usize) -> &'a [u8] {
-        &self.data[start..self.pos]
-    }
-
     /// Validates a count/length field read from the file at `at`: it must not be negative.
     pub(crate) fn count(
         &self,

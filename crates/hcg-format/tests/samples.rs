@@ -48,7 +48,7 @@ fn samples() -> Vec<(String, Vec<u8>)> {
     out
 }
 
-fn parse_ok(name: &str, bytes: &[u8]) -> HcgFile {
+fn parse_ok<'a>(name: &str, bytes: &'a [u8]) -> HcgFile<'a> {
     parse(bytes).unwrap_or_else(|e| panic!("{name}: {e}"))
 }
 
@@ -93,6 +93,11 @@ fn c1_roundtrip_is_byte_identical() {
         let file = parse_ok(&name, &bytes);
         assert!(file.to_bytes() == bytes, "{name}: roundtrip differs");
         assert_eq!(file.version(), 0x78, "{name}");
+        // The owning parser gives the same result and hands the source back without copying.
+        let owned =
+            hcg_format::parse_owned(bytes.clone()).unwrap_or_else(|e| panic!("{name}: {e}"));
+        assert!(owned.to_bytes() == bytes, "{name}: owned roundtrip differs");
+        assert!(owned.into_source() == bytes, "{name}: source changed");
     }
 }
 

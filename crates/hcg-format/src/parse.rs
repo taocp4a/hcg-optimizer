@@ -3,6 +3,8 @@
 //! is an error.
 
 use crate::error::{ParseError, ParseErrorKind};
+use std::borrow::Cow;
+
 use crate::model::{HcgFile, Layer, Object, Page, Payload, SafeBmp};
 use crate::reader::{Reader, i32_at, i64_at, u32_at, u64_at};
 
@@ -20,8 +22,40 @@ const RICH_CHAR_RECORD: usize = 28;
 /// Smallest valid BMP (file header only).
 const BMP_MIN_SIZE: u32 = 14;
 
-/// Parses a complete `.hcg` file. Never panics; any unexpected input is a [`ParseError`].
-pub fn parse(bytes: &[u8]) -> Result<HcgFile, ParseError> {
+/// Parses a complete `.hcg` file, borrowing `bytes`. Never panics; any unexpected input is a
+/// [`ParseError`].
+pub fn parse(bytes: &[u8]) -> Result<HcgFile<'_>, ParseError> {
+    let parts = parse_parts(bytes)?;
+    Ok(parts.with_data(Cow::Borrowed(bytes)))
+}
+
+/// Parses a complete `.hcg` file, taking ownership of `bytes` (no copy).
+pub fn parse_owned(bytes: Vec<u8>) -> Result<HcgFile<'static>, ParseError> {
+    let parts = parse_parts(&bytes)?;
+    Ok(parts.with_data(Cow::Owned(bytes)))
+}
+
+/// Everything but the source bytes.
+struct Parts {
+    header: [u8; 0x28],
+    doc_header: [u8; 0x20],
+    global_layer: Layer,
+    pages: Vec<Page>,
+}
+
+impl Parts {
+    fn with_data(self, data: Cow<'_, [u8]>) -> HcgFile<'_> {
+        HcgFile {
+            data,
+            header: self.header,
+            doc_header: self.doc_header,
+            global_layer: self.global_layer,
+            pages: self.pages,
+        }
+    }
+}
+
+fn parse_parts(bytes: &[u8]) -> Result<Parts, ParseError> {
     let mut r = Reader::new(bytes);
 
     let header = r.scope("file header", |r| {
@@ -55,7 +89,7 @@ pub fn parse(bytes: &[u8]) -> Result<HcgFile, ParseError> {
     if r.remaining() > 0 {
         return Err(r.error(r.pos(), ParseErrorKind::TrailingBytes(r.remaining())));
     }
-    Ok(HcgFile {
+    Ok(Parts {
         header,
         doc_header,
         global_layer,
@@ -84,7 +118,7 @@ fn read_page(r: &mut Reader<'_>) -> Result<Page, ParseError> {
     if header[2] != 0 {
         r.scope("thumbnail", read_thumbnail)?;
     }
-    let trailer = r.since(trailer_start).to_vec();
+    let trailer = trailer_start..r.pos();
 
     Ok(Page {
         header,
@@ -154,7 +188,7 @@ fn read_object(r: &mut Reader<'_>) -> Result<Object, ParseError> {
     let text2_len = field(0x0C, "text2 length")?;
     let path_len = field(0x10, "path length")?;
     let image_count = field(0x14, "image count")?;
-    let head = r.since(start).to_vec();
+    let head = start..r.pos();
 
     let image = if has_image {
         Some(r.scope("image", read_safebmp)?)
@@ -184,7 +218,7 @@ fn read_object(r: &mut Reader<'_>) -> Result<Object, ParseError> {
     if has_rich {
         r.scope("rich text", skip_rich_text)?;
     }
-    let rest = r.since(rest_start).to_vec();
+    let rest = rest_start..r.pos();
 
     Ok(Object {
         head,
@@ -257,7 +291,7 @@ fn read_safebmp(r: &mut Reader<'_>) -> Result<SafeBmp, ParseError> {
                     .collect(),
             )
         } else {
-            Payload::Embedded(bytes.to_vec())
+            Payload::Embedded(r.pos() - len..r.pos())
         }
     };
     Ok(SafeBmp {
