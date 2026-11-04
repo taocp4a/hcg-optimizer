@@ -10,6 +10,7 @@ use hcg_format::{
     ImageRef, ImageRole, ImageSource, PageTransition, ParseErrorKind, TransitionKind,
 };
 
+use crate::analyze::BundlePlan;
 use crate::apply::{ApplyFailure, BundleResult, FileResult};
 use crate::policy::{ImageAction, ImageWarning, KeepReason, PlannedAction, ResizePolicy};
 use crate::ports::{ImageFormat, OutputFormat};
@@ -232,73 +233,9 @@ pub fn build_report(result: &BundleResult, run: &RunNotes, policy: &ResizePolicy
         })
         .collect();
 
-    let mut missing: Vec<MissingEntry> = Vec::new();
-    for image in &plan.missing {
-        let path = path_of(image);
-        match missing.iter_mut().find(|m| m.path == path) {
-            Some(entry) => entry.used_on.push(used_on(image)),
-            None => missing.push(MissingEntry {
-                path: path.clone(),
-                expected_file: image.folder_file_name.clone(),
-                used_on: vec![used_on(image)],
-            }),
-        }
-    }
-    for entry in &missing {
-        warnings.push(Warning {
-            code: "missing_image".into(),
-            message: format!(
-                "{} ({}) is not in the image folder. ez-CGER can still show it only on a PC \
-                 where that path exists.",
-                entry.path,
-                places(&entry.used_on)
-            ),
-            file: entry.expected_file.clone(),
-        });
-    }
-
-    let embedded = plan
-        .embedded
-        .iter()
-        .map(|image| {
-            let (kind, bytes) = match image.source {
-                ImageSource::Embedded { len } => ("embedded", len as u64),
-                _ => ("empty", 0),
-            };
-            EmbeddedEntry {
-                kind: kind.into(),
-                bytes,
-                used_on: used_on(image),
-            }
-        })
-        .collect();
-
-    let transitions: Vec<TransitionEntry> = plan
-        .transitions
-        .iter()
-        .filter_map(|page| match page.transition {
-            PageTransition::Effect { kind, duration_ms } => Some(TransitionEntry {
-                page: page.index + 1,
-                kind: transition_name(kind).into(),
-                type_value: transition_value(kind),
-                duration_ms,
-            }),
-            PageTransition::Global => None,
-        })
-        .collect();
-    for t in &transitions {
-        warnings.push(Warning {
-            code: "transition_not_cut".into(),
-            message: format!(
-                "Page {} uses a {} transition ({}). On a slow PC transitions take longer than set; \
-                 CUT avoids the delay.",
-                t.page,
-                transition_label(&t.kind),
-                seconds(t.duration_ms)
-            ),
-            file: None,
-        });
-    }
+    let missing = missing_entries(plan, &mut warnings);
+    let embedded = embedded_entries(plan);
+    let transitions = transition_entries(plan, &mut warnings);
 
     let images_shrunk = images.iter().filter(|i| i.action == Action::Shrunk).count();
     let images_renamed = images.iter().filter(|i| i.renamed_to.is_some()).count();
@@ -368,6 +305,85 @@ pub fn build_report(result: &BundleResult, run: &RunNotes, policy: &ResizePolicy
     };
     report.text = render_text(&report);
     report
+}
+
+/// Missing references grouped by path, each with a `missing_image` warning.
+fn missing_entries(plan: &BundlePlan, warnings: &mut Vec<Warning>) -> Vec<MissingEntry> {
+    let mut missing: Vec<MissingEntry> = Vec::new();
+    for image in &plan.missing {
+        let path = path_of(image);
+        match missing.iter_mut().find(|m| m.path == path) {
+            Some(entry) => entry.used_on.push(used_on(image)),
+            None => missing.push(MissingEntry {
+                path: path.clone(),
+                expected_file: image.folder_file_name.clone(),
+                used_on: vec![used_on(image)],
+            }),
+        }
+    }
+    for entry in &missing {
+        warnings.push(Warning {
+            code: "missing_image".into(),
+            message: format!(
+                "{} ({}) is not in the image folder. ez-CGER can still show it only on a PC \
+                 where that path exists.",
+                entry.path,
+                places(&entry.used_on)
+            ),
+            file: entry.expected_file.clone(),
+        });
+    }
+
+    missing
+}
+
+fn embedded_entries(plan: &BundlePlan) -> Vec<EmbeddedEntry> {
+    plan.embedded
+        .iter()
+        .map(|image| {
+            let (kind, bytes) = match image.source {
+                ImageSource::Embedded { len } => ("embedded", len as u64),
+                _ => ("empty", 0),
+            };
+            EmbeddedEntry {
+                kind: kind.into(),
+                bytes,
+                used_on: used_on(image),
+            }
+        })
+        .collect()
+}
+
+/// Non-CUT transitions, each with a `transition_not_cut` warning.
+fn transition_entries(plan: &BundlePlan, warnings: &mut Vec<Warning>) -> Vec<TransitionEntry> {
+    let transitions: Vec<TransitionEntry> = plan
+        .transitions
+        .iter()
+        .filter_map(|page| match page.transition {
+            PageTransition::Effect { kind, duration_ms } => Some(TransitionEntry {
+                page: page.index + 1,
+                kind: transition_name(kind).into(),
+                type_value: transition_value(kind),
+                duration_ms,
+            }),
+            PageTransition::Global => None,
+        })
+        .collect();
+    for t in &transitions {
+        warnings.push(Warning {
+            code: "transition_not_cut".into(),
+            message: format!(
+                "Page {} uses a {} transition ({}). On a slow PC transitions take longer than set; \
+                 CUT avoids the delay.",
+                t.page,
+                transition_label(&t.kind),
+                seconds(t.duration_ms)
+            ),
+            file: None,
+        });
+    }
+
+    transitions
 }
 
 /// The report as pretty-printed JSON.
@@ -800,4 +816,218 @@ fn image_line(i: &ImageInfo) -> String {
         i.format.to_uppercase(),
         human_size(i.bytes)
     )
+}
+
+/// Preview of a whole run before any image is decoded (issue #17): what will be shrunk, what is
+/// kept and why, and the warnings known from the headers alone.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PlanReport {
+    pub schema: u32,
+    pub summary: PlanSummary,
+    pub bundles: Vec<BundlePreview>,
+    pub other_files: OtherFiles,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PlanSummary {
+    /// One sentence, e.g. "2 of 3 images will be shrunk (28.1 MB). 1 warning."
+    pub headline: String,
+    pub bundles: usize,
+    pub files_total: usize,
+    pub files_to_shrink: usize,
+    pub bytes_total: u64,
+    pub bytes_to_shrink: u64,
+    pub warnings: usize,
+    /// True if nothing can be processed (no bundle has a readable hcg).
+    pub nothing_to_do: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BundlePreview {
+    pub bundle: BundleInfo,
+    pub status: Status,
+    pub failure: Option<Failure>,
+    pub hcg: Option<HcgInfo>,
+    pub files: Vec<PlannedFile>,
+    pub missing: Vec<MissingEntry>,
+    pub embedded: Vec<EmbeddedEntry>,
+    pub transitions: Vec<TransitionEntry>,
+    pub unreferenced_files: usize,
+    pub warnings: Vec<Warning>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannedKind {
+    Shrink,
+    Keep,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Size {
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PlannedFile {
+    pub file: String,
+    pub path: String,
+    pub used_on: Vec<UsedOn>,
+    pub before: ImageInfo,
+    pub action: PlannedKind,
+    /// Size after fitting, when it will be shrunk.
+    pub target: Option<Size>,
+    /// Keep reason (same codes as `ImageEntry::reason`).
+    pub reason: Option<String>,
+}
+
+/// Builds the preview of a run plan. Pure and deterministic.
+pub fn plan_report(plan: &crate::run::RunPlan) -> PlanReport {
+    let bundles: Vec<BundlePreview> = plan
+        .bundles
+        .iter()
+        .map(|(_, p)| bundle_preview(p))
+        .collect();
+    let files = || bundles.iter().flat_map(|b| b.files.iter());
+    let files_total = files().count();
+    let files_to_shrink = files().filter(|f| f.action == PlannedKind::Shrink).count();
+    let bytes_total = files().map(|f| f.before.bytes).sum();
+    let bytes_to_shrink = files()
+        .filter(|f| f.action == PlannedKind::Shrink)
+        .map(|f| f.before.bytes)
+        .sum();
+    let warnings: usize = bundles.iter().map(|b| b.warnings.len()).sum();
+    let nothing_to_do = bundles.iter().all(|b| b.status == Status::Failed);
+
+    let warn = match warnings {
+        0 => "No warnings.".to_string(),
+        1 => "1 warning.".to_string(),
+        n => format!("{n} warnings."),
+    };
+    let noun = if files_total == 1 { "image" } else { "images" };
+    let headline = if bundles.is_empty() {
+        "No .hcg file found in the zip.".to_string()
+    } else if nothing_to_do {
+        format!("The .hcg file could not be read. {warn}")
+    } else if files_to_shrink == 0 {
+        format!("Nothing to shrink: {files_total} {noun} already fine. {warn}")
+    } else {
+        format!(
+            "{files_to_shrink} of {files_total} {noun} will be shrunk ({}). {warn}",
+            human_size(bytes_to_shrink)
+        )
+    };
+
+    PlanReport {
+        schema: SCHEMA,
+        summary: PlanSummary {
+            headline,
+            bundles: bundles.len(),
+            files_total,
+            files_to_shrink,
+            bytes_total,
+            bytes_to_shrink,
+            warnings,
+            nothing_to_do: bundles.is_empty() || nothing_to_do,
+        },
+        bundles,
+        other_files: OtherFiles {
+            unpaired: plan.unpaired.clone(),
+            ignored: plan.ignored.len(),
+        },
+    }
+}
+
+fn bundle_preview(plan: &BundlePlan) -> BundlePreview {
+    let mut warnings = Vec::new();
+    let failure = plan.hcg.as_ref().err().map(|e| {
+        let failure = ApplyFailure::Parse(e.clone());
+        let (code, advice) = failure_code_and_advice(&failure);
+        let message = sentence(&failure.to_string());
+        warnings.push(Warning {
+            code: code.into(),
+            message: message.clone(),
+            file: None,
+        });
+        Failure {
+            code: code.into(),
+            message,
+            advice: advice.into(),
+        }
+    });
+    let files = plan
+        .files
+        .iter()
+        .map(|f| {
+            let (action, target, reason) = match &f.action {
+                PlannedAction::Shrink {
+                    target: (width, height),
+                } => (
+                    PlannedKind::Shrink,
+                    Some(Size {
+                        width: *width,
+                        height: *height,
+                    }),
+                    None,
+                ),
+                PlannedAction::Keep(reason) => {
+                    if let Some((code, message)) = reason_warning(reason, &f.name) {
+                        warnings.push(Warning {
+                            code: code.into(),
+                            message,
+                            file: Some(f.name.clone()),
+                        });
+                    }
+                    (
+                        PlannedKind::Keep,
+                        None,
+                        Some(reason_code(reason).to_string()),
+                    )
+                }
+            };
+            PlannedFile {
+                file: f.name.clone(),
+                path: f.refs.first().map(path_of).unwrap_or_default(),
+                used_on: f.refs.iter().map(used_on).collect(),
+                before: ImageInfo {
+                    format: f.probe.map_or("other", |p| format_name(p.format)).into(),
+                    width: f.probe.and_then(|p| p.dimensions).map(|d| d.0),
+                    height: f.probe.and_then(|p| p.dimensions).map(|d| d.1),
+                    bytes: f.bytes,
+                    quality: None,
+                },
+                action,
+                target,
+                reason,
+            }
+        })
+        .collect();
+    let missing = missing_entries(plan, &mut warnings);
+    let embedded = embedded_entries(plan);
+    let transitions = transition_entries(plan, &mut warnings);
+    BundlePreview {
+        bundle: BundleInfo {
+            stem: plan.stem.clone(),
+            hcg_path: plan.hcg_path.clone(),
+            folder_path: plan.folder_path.clone(),
+        },
+        status: if failure.is_some() {
+            Status::Failed
+        } else {
+            Status::Ok
+        },
+        failure,
+        hcg: plan.hcg.as_ref().ok().map(|h| HcgInfo {
+            version: h.version,
+            pages: h.page_count,
+            image_refs: h.image_refs,
+        }),
+        files,
+        missing,
+        embedded,
+        transitions,
+        unreferenced_files: plan.unreferenced.len(),
+        warnings,
+    }
 }
