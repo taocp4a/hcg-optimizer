@@ -111,3 +111,16 @@ Each warning: `code`, `message` (English sentence), `file` (folder file or path 
 | `unsupported_version` | the hcg is not format 0x78 (advice: re-save in ez-CGER) |
 | `parse_failed` | the hcg could not be read |
 | `apply_failed` | the rewritten hcg failed verification; nothing was changed |
+
+## Plan preview (`plan_report`)
+
+Before any image is decoded, the web page shows `hcg_app::report::plan_report(&RunPlan)` (also schema 1):
+
+| Field | Meaning |
+|---|---|
+| `summary` | `headline` (e.g. "2 of 3 images will be shrunk (28.1 MB). No warnings."), `bundles`, `files_total`, `files_to_shrink`, `bytes_total`, `bytes_to_shrink`, `warnings`, `nothing_to_do` (no readable hcg) |
+| `bundles[]` | `bundle`, `status`, `failure`, `hcg`, `files`, `missing`, `embedded`, `transitions`, `unreferenced_files`, `warnings` (same shapes as the report) |
+| `bundles[].files[]` | `file`, `path`, `used_on`, `before`, `action` (`shrink` or `keep`), `target` (`width`, `height` after fitting, when shrinking), `reason` (keep reason code) |
+| `other_files` | as in the report |
+
+Warnings in the preview are the ones known from headers alone (missing images, unsupported formats, transitions, unreadable files, failures); size warnings appear only after optimizing.

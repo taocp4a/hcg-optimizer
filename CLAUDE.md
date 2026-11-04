@@ -44,10 +44,10 @@ Format spec: [`project/docs/HCG_FORMAT.md`](project/docs/HCG_FORMAT.md). Check t
 │   ├── hcg-adapters/          # [adapters] zip <-> Bundle, pure-Rust ImageCodec
 │   ├── hcg-cli/               # [frontend] `hcg-optimizer` CLI (development and testing)
 │   └── hcg-wasm/              # [frontend] wasm-bindgen bindings (web)
-├── web/                       # static GitHub Pages front end (HTML/CSS/JS)
+├── web/                       # static GitHub Pages front end: index.html, main.js (display), worker.js (WASM session), style.css
 ├── project/                   # everything that is not code
 │   ├── docs/                  # requirements, format spec, report format, architecture, dependencies
-│   ├── scripts/               # preflight.sh, check_layers.py, build_web.sh, reference_roundtrip.sh, reference_summary.py,
+│   ├── scripts/               # preflight.sh, check_layers.py, build_web.sh, web_e2e.sh(+.js), reference_roundtrip.sh, reference_summary.py,
 │   │                          # bench_memory.sh + make_bench_sample.py (time/memory on a 204-page project)
 │   ├── bench/                 # benchmark crate used by bench_memory.sh (not a workspace member)
 │   ├── reference/             # Python reference implementation (hcg_parse.py, hcg_write.py)
@@ -66,6 +66,7 @@ Architecture: [`project/docs/ARCHITECTURE.md`](project/docs/ARCHITECTURE.md). De
 cargo test --workspace                 # unit/integration tests
 project/scripts/preflight.sh           # ★ required before every PR. No PR if it fails
 project/scripts/build_web.sh           # builds the static site into dist/ (needs wasm-bindgen-cli)
+project/scripts/web_e2e.sh             # browser E2E (Playwright + Chromium): plan, optimize, download, no external requests
 python3 -m http.server -d dist 8000    # preview the site locally
 cargo run -p hcg-cli -- input.zip      # run the CLI (writes input_optimized.zip; report on stdout)
 cargo run -p hcg-cli -- project/samples/speedtest.hcg -o /tmp/out.zip   # .hcg input + its folder

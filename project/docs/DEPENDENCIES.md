@@ -32,13 +32,13 @@ Principle: use **only pure-Rust crates that build for WASM (wasm32-unknown-unkno
 | `jpeg-decoder` 0.3 | hcg-adapters | Scaled JPEG decoding (DCT 1/2, 1/4, 1/8) so large photos are never decoded at full size (issue #13). `default-features = false` (no rayon) |
 | `crc32fast` 1.4 | hcg-adapters (dev only) | Tests craft zips with chosen raw names and flags |
 | `clap` 4 (derive) | hcg-cli | Argument parsing and `--help` for the CLI (frontend only; not in the wasm build) |
+| `js-sys` =0.3.77 | hcg-wasm | Progress callback into JavaScript; pinned to match wasm-bindgen 0.2.100 |
 | `wasm-bindgen` =0.2.100 | hcg-wasm | JS bindings. Pinned with `=` to match the CLI version |
 
 ## Planned (add when needed and update this table)
 
 | Crate | Used by | Why / notes |
 |---|---|---|
-| `js-sys` / `web-sys` | hcg-wasm | Only if needed, e.g. for progress callbacks |
 
 ## External material
 
