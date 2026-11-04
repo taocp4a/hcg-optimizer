@@ -22,6 +22,8 @@ Principle: use **only pure-Rust crates that build for WASM (wasm32-unknown-unkno
 | Crate | Used by | Why |
 |---|---|---|
 | `crc32fast` 1.4 | hcg-format | Image ID (supports a custom initial value 'HDCG' via `new_with_initial`) |
+| `thiserror` 2 | hcg-format | Error types (`ParseErrorKind`, `EditError`) |
+| `serde_json` 1 | hcg-format (dev only) | Tests read `project/samples/reference_summary.json` |
 | `wasm-bindgen` =0.2.100 | hcg-wasm | JS bindings. Pinned with `=` to match the CLI version |
 
 ## Planned (add when needed and update this table)
@@ -31,7 +33,7 @@ Principle: use **only pure-Rust crates that build for WASM (wasm32-unknown-unkno
 | `zip` | hcg-adapters | Read/write zip. `default-features = false` with only `deflate`, to stay WASM-compatible |
 | `encoding_rs` | hcg-adapters | Decode CP949 (superset of EUC-KR) entry names |
 | `image` | hcg-adapters | PNG/JPEG decode, resize, encode. `default-features = false`, only the `png` and `jpeg` features |
-| `thiserror` | hcg-format, hcg-app | Error types |
+| `thiserror` | hcg-app | Error types |
 | `js-sys` / `web-sys` | hcg-wasm | Only if needed, e.g. for progress callbacks |
 
 ## External material
