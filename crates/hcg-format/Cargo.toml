@@ -1,0 +1,14 @@
+[package]
+name = "hcg-format"
+description = "Domain layer: ez-CGER .hcg model, parser/writer, image folder ID (pure, no I/O)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+crc32fast.workspace = true
+
+[lints]
+workspace = true
