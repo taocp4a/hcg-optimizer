@@ -105,7 +105,7 @@ hcg-adapters/src/
 | hcg-format | parse -> write byte-identical for every sample; truncated/mutated input never panics; edits change only size + payload; results equal `reference_summary.json` |
 | Image ID | unit tests against sample folder file names |
 | hcg-app | fast tests of policy, path updates, and report using a fake `ImageCodec` (test double) |
-| Integration | zip `project/samples/large/` and run the CLI end to end: output images ≤ 1920×1080 and ≤ 1 MB, non-path fields unchanged |
+| Integration | zip `project/samples/layered.hcg` + `layered/` (and `speedtest`) and run the CLI end to end: output images ≤ 1920×1080 and ≤ 1 MB, non-path fields unchanged |
 
 ## Deployment
 

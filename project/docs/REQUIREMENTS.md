@@ -27,14 +27,13 @@ Shrink large images inside `.hcg` files of the ez-CGER (LUMANTEK) subtitle progr
 - Warnings for unreadable blocks or a different format version
 
 ## Acceptance criteria
-- Every hcg under samples/ must be byte-identical after being read and written back. The Python reference (reference/hcg_write.py) passed this on 90 test files, excluding files with embedded images.
+- Every hcg under samples/ must be byte-identical after being read and written back. The Python reference (reference/hcg_write.py) passes this on all 91 test files, including embedded images and an empty image block.
 - When the resized hcg is read back, only image paths may differ; all other fields must be equal.
 - The parser must raise an error instead of silently skipping bytes it could not handle.
 
 ## References
 - HCG_FORMAT.md: format spec. The evidence column marks each item [confirmed], [unverified], or [guess].
 - reference/hcg_parse.py, reference/hcg_write.py: verified Python implementation; the baseline for the Rust port.
-- samples/fmt: step-by-step files made directly in the app (from v00 empty file to v12 same image twice), with image folders.
-- samples/rev: a few property test files.
-- Large-image tests use samples/large (speedtest.hcg + speedtest/ folder, including a ~10 MB 6000×4000 photo and a 6 MB PNG). Zipped, it is also an example input for the tool.
+- project/samples: all 91 test files in one folder, described in project/samples/README.md: step-by-step base files (v00 empty file to v12 same image twice), property test files, embedded-image files, and two realistic files with large images.
+- Large-image tests use `layered.hcg` + `layered/` (three ~12 MB JPEGs, a 6000×4000 photo) and `speedtest.hcg` + `speedtest/` (the photo, a 6 MB PNG). Zipped with its folder, each is also an example input for the tool.
 - The vendor's program, DLLs, and manual are not included and not redistributed.

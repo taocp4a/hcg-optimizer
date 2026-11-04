@@ -7,7 +7,7 @@ This document describes the **structure and field meanings** of `.hcg` files for
 - **[unverified]**: there is supporting evidence, but not yet verified with samples or on screen
 - **[guess]**: unverified hypothesis
 
-**Verification:** `project/reference/hcg_parse.py` reads every hcg in `project/samples` with 100% byte coverage, and writing it back with `hcg_write.py` is byte-identical (`project/scripts/reference_roundtrip.sh`). The test set contains no files with embedded images.
+**Verification:** `project/reference/hcg_parse.py` reads every hcg in `project/samples` with 100% byte coverage, and writing it back with `hcg_write.py` is byte-identical (`project/scripts/reference_roundtrip.sh`). The set includes embedded PNG/JPEG/BMP images and an empty image block left by the app after re-saving an embedded image (see `project/samples/README.md`).
 
 All integers are little-endian. `i32` = int32, `f32` = float, `WStr` = `i32 character count + UTF-16LE` (no terminator).
 
@@ -195,7 +195,7 @@ s         = IntToHex(stamp, 4) + LowerCaseASCII(original absolute path)   # uppe
 ID        = CRC32(UTF-16LE(s), initial value 0x47434448 'HDCG')            # standard reflected polynomial 0xEDB88320
 file name = '%.8X' % ID + file-name part of the path
 ```
-In Python: `zlib.crc32(s.encode('utf-16le'), 0x47434448)`. **All** 19 files in the sample folders match.
+In Python: `zlib.crc32(s.encode('utf-16le'), 0x47434448)`. **All** 27 files in the sample image folders match.
 - Only ASCII `A`–`Z` are lower-cased.
 - If the original file's modification time (stamp) changes, the ID changes.
 - **If the path or extension changes (e.g. png -> jpg), the ID must be recomputed.**
