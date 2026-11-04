@@ -5,11 +5,14 @@
 //! - `apply(bundle, plan) -> Bundle`: converts images according to the plan and updates hcg
 //!   paths/IDs.
 //!
-//! Input and output are an in-memory [`bundle::Bundle`]; adapters convert zip files to and from it.
+//! Input and output are an in-memory [`bundle::Bundle`]. Adapters turn a zip into a flat file
+//! list ([`package::InputFile`]); [`package::pair_bundles`] groups it into bundles and
+//! [`package::output_files`] lays out the result.
 //! Anything whose implementation may differ per runtime (image decode/encode, progress) is taken
 //! through the traits in [`ports`].
 //!
 //! This crate depends on no internal crate other than `hcg-format` (checked by preflight).
 
 pub mod bundle;
+pub mod package;
 pub mod ports;
