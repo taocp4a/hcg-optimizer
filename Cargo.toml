@@ -21,6 +21,8 @@ hcg-format = { path = "crates/hcg-format" }
 hcg-app = { path = "crates/hcg-app" }
 hcg-adapters = { path = "crates/hcg-adapters" }
 crc32fast = "1.4"
+thiserror = "2"
+serde_json = "1"
 wasm-bindgen = "=0.2.100"
 
 [workspace.lints.rust]

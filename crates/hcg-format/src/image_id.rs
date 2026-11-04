@@ -13,19 +13,48 @@ const CRC_SEED: u32 = 0x4743_4448;
 ///
 /// Only ASCII `A`–`Z` are lower-cased; all other characters (e.g. Hangul) are kept as is.
 pub fn image_id(path: &str, stamp: u64) -> String {
-    let lowered: String = path.chars().map(|c| c.to_ascii_lowercase()).collect();
-    let s = format!("{stamp:04X}{lowered}");
+    let units: Vec<u16> = path.encode_utf16().collect();
+    image_id_utf16(&units, stamp)
+}
+
+/// [`image_id`] over raw UTF-16 code units, as stored in the file.
+pub fn image_id_utf16(path: &[u16], stamp: u64) -> String {
+    let prefix = format!("{stamp:04X}");
     let mut hasher = crc32fast::Hasher::new_with_initial(CRC_SEED);
-    for unit in s.encode_utf16() {
+    for unit in prefix
+        .encode_utf16()
+        .chain(path.iter().map(|&u| ascii_lower(u)))
+    {
         hasher.update(&unit.to_le_bytes());
     }
     format!("{:08X}", hasher.finalize())
 }
 
-/// Builds the file name inside the image folder (`ID + file name`). Accepts both `\` and `/` as separators.
+/// Builds the file name inside the image folder (`ID + file name`). Accepts both `\\` and `/` as separators.
 pub fn subfolder_file_name(path: &str, stamp: u64) -> String {
-    let base = path.rsplit(['\\', '/']).next().unwrap_or(path);
-    format!("{}{}", image_id(path, stamp), base)
+    let units: Vec<u16> = path.encode_utf16().collect();
+    subfolder_file_name_utf16(&units, stamp)
+}
+
+/// [`subfolder_file_name`] over raw UTF-16 code units.
+pub(crate) fn subfolder_file_name_utf16(path: &[u16], stamp: u64) -> String {
+    let start = path
+        .iter()
+        .rposition(|&u| u == u16::from(b'\\') || u == u16::from(b'/'))
+        .map_or(0, |i| i + 1);
+    format!(
+        "{}{}",
+        image_id_utf16(path, stamp),
+        String::from_utf16_lossy(&path[start..])
+    )
+}
+
+fn ascii_lower(unit: u16) -> u16 {
+    if (u16::from(b'A')..=u16::from(b'Z')).contains(&unit) {
+        unit + 32
+    } else {
+        unit
+    }
 }
 
 #[cfg(test)]
