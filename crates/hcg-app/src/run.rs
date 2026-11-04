@@ -44,8 +44,9 @@ impl RunResult {
             .collect()
     }
 
-    /// The output package with each bundle's report rendered as `report.txt`.
-    pub fn package(&self, policy: &ResizePolicy) -> Vec<OutputFile> {
+    /// The output package with each bundle's report rendered as `report.txt`. Consumes the
+    /// result so file contents move into the package instead of being copied (issue #13).
+    pub fn package(self, policy: &ResizePolicy) -> Vec<OutputFile> {
         let notes = self.notes();
         self.output_files(|bundle| build_report(bundle, &notes, policy).text)
     }
@@ -60,19 +61,17 @@ impl RunResult {
 
     /// The output package: per bundle `<stem>_optimized/` with the optimized files (or only the
     /// report if the bundle failed) and `report.txt` with the text `report` returns.
-    pub fn output_files(&self, report: impl Fn(&BundleResult) -> String) -> Vec<OutputFile> {
-        let reports: Vec<String> = self.bundles.iter().map(&report).collect();
-        let packaged: Vec<PackagedBundle<'_>> = self
+    pub fn output_files(self, report: impl Fn(&BundleResult) -> String) -> Vec<OutputFile> {
+        let packaged = self
             .bundles
-            .iter()
-            .zip(&reports)
-            .map(|(b, r)| PackagedBundle {
-                stem: &b.plan.stem,
-                bundle: b.output.as_ref(),
-                report: r,
+            .into_iter()
+            .map(|b| PackagedBundle {
+                report: report(&b),
+                stem: b.plan.stem,
+                bundle: b.output,
             })
             .collect();
-        output_files(&packaged)
+        output_files(packaged)
     }
 }
 
@@ -111,7 +110,7 @@ pub fn execute<C: ImageCodec, P: Progress>(
             offset,
             total,
         };
-        bundles.push(apply(codec, &bundle, bundle_plan, policy, &mut scoped)?);
+        bundles.push(apply(codec, bundle, bundle_plan, policy, &mut scoped)?);
         offset += count;
     }
     Ok(RunResult {

@@ -4,7 +4,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use hcg_format::{HcgFile, ImageSlot, ImageSource, ParseError, parse, subfolder_file_name};
+use hcg_format::{
+    HcgFile, ImageRef, ImageSlot, ImageSource, PageInfo, ParseError, parse, parse_owned,
+    subfolder_file_name,
+};
 
 use crate::analyze::BundlePlan;
 use crate::bundle::{Bundle, BundleFile};
@@ -56,7 +59,7 @@ pub struct BundleResult {
 /// bundle gets no output and the reason is recorded (A1, A9).
 pub fn apply<C: ImageCodec, P: Progress>(
     codec: &C,
-    bundle: &Bundle,
+    bundle: Bundle,
     plan: BundlePlan,
     policy: &ResizePolicy,
     progress: &mut P,
@@ -73,13 +76,16 @@ pub fn apply<C: ImageCodec, P: Progress>(
         let failure = ApplyFailure::Parse(e.clone());
         return failed(plan, Vec::new(), failure);
     }
-    let before = match parse(&bundle.hcg) {
-        Ok(file) => file,
-        Err(e) => return failed(plan, Vec::new(), ApplyFailure::Parse(e)),
-    };
-    let mut hcg = before.clone();
+    let Bundle {
+        stem,
+        hcg_path,
+        folder_path,
+        hcg,
+        mut images,
+    } = bundle;
 
-    let mut images = bundle.images.clone();
+    // Images first, before the hcg is parsed, so decoding a large photo and holding a large hcg
+    // never overlap (issue #13). Path edits are collected and applied afterwards.
     let index: HashMap<String, usize> = images
         .iter()
         .enumerate()
@@ -102,14 +108,9 @@ pub fn apply<C: ImageCodec, P: Progress>(
         let Some(&i) = index.get(&file_plan.name.to_lowercase()) else {
             continue; // cannot happen: the plan was built from this bundle
         };
-        let outcome = optimize_image(codec, &file_plan.name, &images[i].bytes, policy);
-        let mut result = FileResult {
-            name: file_plan.name.clone(),
-            new_name: file_plan.name.clone(),
-            new_path: None,
-            outcome,
-        };
-        if let ImageAction::Converted(converted) = &result.outcome.action {
+        let mut outcome = optimize_image(codec, &file_plan.name, &images[i].bytes, policy);
+        let (mut new_name, mut new_path) = (file_plan.name.clone(), None);
+        if let ImageAction::Converted(converted) = &mut outcome.action {
             let old_path = match file_plan.refs.first().map(|r| &r.source) {
                 Some(ImageSource::Path(p)) => p.clone(),
                 _ => String::new(),
@@ -118,52 +119,62 @@ pub fn apply<C: ImageCodec, P: Progress>(
             let (dir, file_name) = split_path(&old_path);
             let (new_file_name, extension_changed) = output_file_name(file_name, converted.format);
             if extension_changed {
-                let (new_path, new_name) =
+                let (path, renamed) =
                     unique_name(dir, &new_file_name, stamp, &taken, &file_plan.name);
                 for image_ref in &file_plan.refs {
-                    if let Err(e) = hcg.set_image_path(image_ref.slot, &new_path) {
-                        return failed(plan, results, ApplyFailure::Edit(e.to_string()));
-                    }
                     changes.insert(
                         image_ref.slot,
-                        (old_path.clone(), new_path.clone(), new_name.clone()),
+                        (old_path.clone(), path.clone(), renamed.clone()),
                     );
                 }
                 taken.remove(&file_plan.name.to_lowercase());
-                taken.insert(new_name.to_lowercase());
-                images[i].name = new_name.clone();
-                result.new_name = new_name;
-                result.new_path = Some(new_path);
+                taken.insert(renamed.to_lowercase());
+                images[i].name = renamed.clone();
+                new_name = renamed;
+                new_path = Some(path);
             }
-            images[i].bytes = converted.bytes.clone();
+            // Move the new bytes into the folder (the old ones are freed); the outcome keeps
+            // only the size.
+            images[i].bytes = std::mem::take(&mut converted.bytes);
         }
-        results.push(result);
+        results.push(FileResult {
+            name: file_plan.name.clone(),
+            new_name,
+            new_path,
+            outcome,
+        });
         done += 1;
     }
     progress.report(total, total, "");
 
-    let hcg_bytes = hcg.to_bytes();
+    // Now the hcg: parsed in place (no copy), edited, written, and verified.
+    let before_len = hcg.len();
+    let mut file = match parse_owned(hcg) {
+        Ok(file) => file,
+        Err(e) => return failed(plan, results, ApplyFailure::Parse(e)),
+    };
+    let before = Facts::of(&file, before_len);
+    for (slot, (_, new_path, _)) in &changes {
+        if let Err(e) = file.set_image_path(*slot, new_path) {
+            return failed(plan, results, ApplyFailure::Edit(e.to_string()));
+        }
+    }
+    let hcg_bytes = file.to_bytes();
+    drop(file);
     let found_before: HashSet<ImageSlot> = plan
         .files
         .iter()
         .flat_map(|f| f.refs.iter().map(|r| r.slot))
         .collect();
-    if let Err(message) = verify(
-        &before,
-        bundle.hcg.len(),
-        &hcg_bytes,
-        &changes,
-        &found_before,
-        &images,
-    ) {
+    if let Err(message) = verify(&before, &hcg_bytes, &changes, &found_before, &images) {
         return failed(plan, results, ApplyFailure::Verify(message));
     }
 
     images.sort_by(|a, b| a.name.cmp(&b.name));
     let output = Bundle {
-        stem: bundle.stem.clone(),
-        hcg_path: bundle.hcg_path.clone(),
-        folder_path: bundle.folder_path.clone(),
+        stem,
+        hcg_path,
+        folder_path,
         hcg: hcg_bytes,
         images,
     };
@@ -173,6 +184,29 @@ pub fn apply<C: ImageCodec, P: Progress>(
         files: results,
         failure: None,
     })
+}
+
+/// What verification compares against, captured before editing (instead of a full copy).
+struct Facts {
+    len: usize,
+    version: i32,
+    page_count: usize,
+    global_objects: usize,
+    pages: Vec<PageInfo>,
+    images: Vec<ImageRef>,
+}
+
+impl Facts {
+    fn of(file: &HcgFile<'_>, len: usize) -> Self {
+        Self {
+            len,
+            version: file.version(),
+            page_count: file.page_count(),
+            global_objects: file.global_object_count(),
+            pages: file.pages().collect(),
+            images: file.images(),
+        }
+    }
 }
 
 /// `("C:\\test\\", "noise.png")` for `C:\test\noise.png`. Accepts `\` and `/`.
@@ -215,24 +249,23 @@ fn unique_name(
     }
 }
 
-/// Re-parses the rewritten hcg and checks contracts A1 and A2.
+/// Re-parses the rewritten hcg (borrowing it, no copy) and checks contracts A1 and A2.
 fn verify(
-    before: &HcgFile,
-    before_len: usize,
+    before: &Facts,
     after_bytes: &[u8],
     changes: &HashMap<ImageSlot, (String, String, String)>,
     found_before: &HashSet<ImageSlot>,
     output_images: &[BundleFile],
 ) -> Result<(), String> {
     let after = parse(after_bytes).map_err(|e| format!("cannot re-read the result: {e}"))?;
-    if after.version() != before.version()
-        || after.page_count() != before.page_count()
-        || after.global_object_count() != before.global_object_count()
-        || !after.pages().eq(before.pages())
+    if after.version() != before.version
+        || after.page_count() != before.page_count
+        || after.global_object_count() != before.global_objects
+        || !after.pages().eq(before.pages.iter().copied())
     {
         return Err("page structure changed".into());
     }
-    let (old_images, new_images) = (before.images(), after.images());
+    let (old_images, new_images) = (&before.images, after.images());
     if old_images.len() != new_images.len() {
         return Err("number of images changed".into());
     }
@@ -240,7 +273,7 @@ fn verify(
         .iter()
         .map(|f| f.name.to_lowercase())
         .collect();
-    let mut expected_len = before_len as i64;
+    let mut expected_len = before.len as i64;
     for (old, new) in old_images.iter().zip(&new_images) {
         let same_place = (
             old.slot, old.page, old.layer, old.object, old.role, old.stamp,

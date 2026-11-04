@@ -205,7 +205,7 @@ fn z2_zip_bomb_and_entry_limits() {
 /// Z1: truncated or corrupted zips never panic.
 #[test]
 fn z1_malformed_zips_never_panic() {
-    let zip = write_zip(&sample_files("v11_two_images", "")).expect("write");
+    let zip = write_zip(sample_files("v11_two_images", "")).expect("write");
     for cut in 0..zip.len() {
         let _ = read(&zip[..cut]);
     }
@@ -315,14 +315,14 @@ fn z5_zip_to_bundles_and_back() {
 
     let results: Vec<_> = pairing
         .bundles
-        .iter()
+        .into_iter()
         .map(|b| PackagedBundle {
-            stem: &b.stem,
+            stem: b.stem.clone(),
             bundle: Some(b),
-            report: "report",
+            report: "report".into(),
         })
         .collect();
-    let out = output_files(&results);
+    let out = output_files(results);
     let back = read(&write_zip(&out).expect("write")).expect("read");
     assert_eq!(back.len(), out.len());
     assert!(

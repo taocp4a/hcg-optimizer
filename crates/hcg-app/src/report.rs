@@ -411,7 +411,7 @@ fn image_entry(
                     format: format.into(),
                     width: Some(c.width),
                     height: Some(c.height),
-                    bytes: c.bytes.len() as u64,
+                    bytes: c.byte_len,
                     quality,
                 });
                 if let Some(path) = &done.new_path {
