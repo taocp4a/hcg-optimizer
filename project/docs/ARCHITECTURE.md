@@ -57,12 +57,15 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
 ## Module plan
 
 ```
-hcg-format/src/
-├── image_id.rs      # ✅ §6.3 CRC32 ID
-├── reader.rs        # offset-tracking reader, coverage check (unhandled bytes -> Error)
-├── model.rs         # HcgFile / Page / Layer / Object / SafeBmp / RichText
-├── parse.rs         # port of reference/hcg_parse.py
-└── write.rs         # port of reference/hcg_write.py
+hcg-format/src/          # ✅ (issue #3)
+├── lib.rs           # public surface re-exports
+├── error.rs         # ParseError (offset + context path), EditError
+├── reader.rs        # offset-tracking reader; checks remaining length before every read
+├── model.rs         # HcgFile / Page / Layer / Object / SafeBmp; unchanged data kept raw
+├── parse.rs         # §1–§6 in order, version 0x78 only
+├── write.rs         # infallible writer, same order
+├── edit.rs          # pages(), images(), set_image_path (the only mutation)
+└── image_id.rs      # §6.3 CRC32 ID
 
 hcg-app/src/
 ├── bundle.rs        # ✅ Bundle / BundleFile
@@ -79,9 +82,11 @@ hcg-adapters/src/
 
 ### Data model principles (hcg-format)
 
-- Only fields with known meaning become struct fields. Fixed records (0xF8 object record, 0x6C page header, ...) are **kept as raw byte arrays**; the writer overlays known fields onto the raw bytes (the `rec_hex` approach of the Python reference).
-- Length fields (sub.lenPath, SafeBMP size, ...) are recomputed from the actual data on write.
-- Thumbnail BMPs, cue records, and embedded image payloads are preserved byte for byte.
+- **Only one mutation exists:** `HcgFile::set_image_path`. Raw model bytes are not public, so outer layers cannot change anything else (domain rule 1 enforced by types).
+- Everything the tool never changes is **kept as raw bytes** and written back unchanged: fixed records, page headers, sequence tails, texts, RichText, cues, thumbnails, embedded payloads. Roundtrip is byte-identical by construction; nothing is re-overlaid from parsed fields.
+- Image paths are stored as UTF-16 code units so even malformed UTF-16 roundtrips. The SafeBMP size field is derived from the payload on write.
+- Only file version 0x78 is supported. Other versions are rejected with `UnsupportedVersion`; the report advises re-saving the file in ez-CGER, which writes 0x78.
+- Contracts C1–C7 are listed in issue #3 and tested in `crates/hcg-format/tests/samples.rs`.
 
 ### Processing flow
 
@@ -97,7 +102,7 @@ hcg-adapters/src/
 |---|---|
 | Layer rules | `check_layers.py` (preflight) |
 | Reference implementation | `reference_roundtrip.sh`: Python roundtrip over all samples (preflight) |
-| hcg-format | parse -> write is byte-identical for every `project/samples/**/*.hcg`, with 100% coverage |
+| hcg-format | parse -> write byte-identical for every sample; truncated/mutated input never panics; edits change only size + payload; results equal `reference_summary.json` |
 | Image ID | unit tests against sample folder file names |
 | hcg-app | fast tests of policy, path updates, and report using a fake `ImageCodec` (test double) |
 | Integration | zip `project/samples/large/` and run the CLI end to end: output images ≤ 1920×1080 and ≤ 1 MB, non-path fields unchanged |

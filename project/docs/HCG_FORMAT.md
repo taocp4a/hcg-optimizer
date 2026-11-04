@@ -219,7 +219,9 @@ one record per character (text length):
 ```
 
 ## 7. Versions
-The current app saves 0x78, and every test file is 0x78. The parser branches on these version boundaries: 0x15 (sequence tail), 0x21 (SafeBMP flag), 0x22 (thumbnail flag), 0x28 (layer hdr size, format defaults), 0x29 (len4), 0x54 (global layer), 0x64 (RichText), 0x6E (stamp), 0x76 (i32 array). **Files with a version other than 0x78 are flagged in the report**, and untested version branches are errors.
+The current app saves 0x78, and every test file is 0x78. **This tool supports only 0x78.** Older files (saved by an older app and never re-saved) become 0x78 once opened and saved in the current app, so the report tells the user to do that. Newer versions cannot be supported until samples exist.
+
+For reference, the layout changes at these version boundaries: 0x15 (sequence tail), 0x21 (SafeBMP flag), 0x22 (thumbnail flag), 0x28 (layer hdr size, format defaults), 0x29 (len4), 0x54 (global layer), 0x64 (RichText), 0x6E (stamp), 0x76 (i32 array).
 
 ## 8. Mapping of manual features to fields
 Image/video position · size · rotation -> 0x00/0x0C/0x08 · Alpha -> 0x27 · sequence -> tail i32×4 · text font/colour/border -> RichText + 0x30/0x34/0x44–0x4C · scroll -> 0xAC/0x50/0xC8/0xCC · skin -> 0x90/0x94/0x98 · shape colour/width -> 0x20/0x24/0x28 · gradient -> 0x58/0x5C/0x60 · shadow -> 0x80–0x8C · PIP -> 0x68–0x7C/0x54/0x64 · lock -> 0xE9 · layers (Overlay/Contents/Background) -> global layer (Background) + page layer · transition effect (CUT/MIX/left-right-up-down, 0.5–3 s) -> page hdr 0x24–0x2C. Template and Bible features have no dedicated fields (templates copy page content).
