@@ -9,6 +9,13 @@ publish.workspace = true
 
 [dependencies]
 hcg-app.workspace = true
+zip.workspace = true
+flate2.workspace = true
+encoding_rs.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+crc32fast.workspace = true
 
 [lints]
 workspace = true
