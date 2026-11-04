@@ -3,22 +3,74 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- W1: files never leave the browser. Only this site's own files may be loaded. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>HCG Image Optimizer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main>
-    <h1>HCG Image Optimizer</h1>
-    <p>Drop a zip containing an ez-CGER <code>.hcg</code> file and its image folder. You get back a
-       zip with the large images shrunk, plus an inspection report.
-       <strong>Your files never leave this browser.</strong></p>
-    <label class="drop">
-      <input id="file" type="file" accept=".zip" disabled>
-      <span>Choose a zip file (coming soon)</span>
+    <header>
+      <h1>HCG Image Optimizer</h1>
+      <p class="lead">Shrinks large images in ez-CGER <code>.hcg</code> projects so page transitions stop lagging.
+        <strong>Everything runs in this browser. Your files are never uploaded.</strong></p>
+    </header>
+
+    <section class="steps" aria-label="How to use">
+      <ol>
+        <li>Put the <code>.hcg</code> file and its image folder (same name) into one zip.</li>
+        <li>Choose the zip below, check the plan, and press <b>Optimize</b>.</li>
+        <li>Download the result and open the <code>.hcg</code> inside it in ez-CGER. Keep your original files.</li>
+      </ol>
+    </section>
+
+    <label id="drop" class="drop" tabindex="0">
+      <input id="file" type="file" accept=".zip,application/zip">
+      <span id="drop-text">Drop a zip here, or click to choose one</span>
     </label>
-    <pre id="log"></pre>
+
+    <details id="advanced">
+      <summary>Advanced settings</summary>
+      <div class="settings">
+        <label>Largest size
+          <span class="pair"><input id="max-width" type="number" min="1" value="1920"> ×
+          <input id="max-height" type="number" min="1" value="1080"> px</span></label>
+        <label>Target file size
+          <span class="pair"><input id="max-kb" type="number" min="1" value="1024"> KB</span></label>
+        <label>JPEG quality
+          <span class="pair"><input id="quality" type="number" min="1" max="100" value="90"> down to
+          <input id="min-quality" type="number" min="1" max="100" value="50"></span></label>
+        <button id="reset" type="button" class="link">Reset to defaults</button>
+      </div>
+    </details>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <div id="error" class="error" role="alert" hidden></div>
+
+    <section id="plan" hidden>
+      <h2>Plan</h2>
+      <p id="plan-headline" class="headline"></p>
+      <div id="plan-body"></div>
+      <div class="actions">
+        <button id="optimize" type="button" class="primary">Optimize</button>
+      </div>
+    </section>
+
+    <section id="progress" hidden>
+      <h2>Optimizing</h2>
+      <progress id="bar" max="1" value="0"></progress>
+      <p id="progress-text" class="status"></p>
+      <div class="actions"><button id="cancel" type="button">Cancel</button></div>
+    </section>
+
+    <section id="result" hidden>
+      <h2>Done</h2>
+      <div class="actions"><a id="download" class="button primary" download>Download</a></div>
+      <div id="reports"></div>
+    </section>
   </main>
-  <footer>core <span id="ver">…</span></footer>
+  <footer>hcg-optimizer core <span id="ver">…</span> · runs locally in your browser</footer>
   <script type="module" src="main.js"></script>
 </body>
 </html>
