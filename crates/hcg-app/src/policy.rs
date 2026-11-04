@@ -19,9 +19,6 @@ pub struct ResizePolicy {
     pub quality_step: u8,
     /// Images with more pixels than this are not decoded (default 100 megapixels).
     pub max_pixels: u64,
-    /// Key-colour guard: a lossless image without alpha whose border is at least this share one
-    /// exact colour stays PNG (default 0.95). `None` disables the guard.
-    pub key_color_border_share: Option<f32>,
 }
 
 impl Default for ResizePolicy {
@@ -34,7 +31,6 @@ impl Default for ResizePolicy {
             min_jpeg_quality: 50,
             quality_step: 5,
             max_pixels: 100_000_000,
-            key_color_border_share: Some(0.95),
         }
     }
 }
@@ -52,8 +48,6 @@ pub enum PolicyError {
     MinAboveStart { min: u8, start: u8 },
     #[error("quality step must be at least 1")]
     ZeroStep,
-    #[error("key-colour border share must be within 0.0-1.0, got {0}")]
-    InvalidKeyShare(f32),
 }
 
 impl ResizePolicy {
@@ -78,11 +72,6 @@ impl ResizePolicy {
         if self.quality_step == 0 {
             return Err(PolicyError::ZeroStep);
         }
-        if let Some(share) = self.key_color_border_share
-            && !(0.0..=1.0).contains(&share)
-        {
-            return Err(PolicyError::InvalidKeyShare(share));
-        }
         Ok(())
     }
 }
@@ -92,8 +81,11 @@ impl ResizePolicy {
 pub enum KeepReason {
     /// Already within the size and resolution limits.
     WithinLimits,
-    /// A format this tool does not convert (GIF, WebP, TGA, ...).
-    UnsupportedFormat(ImageFormat),
+    /// A format ez-CGER loads but this tool does not shrink (GIF may be animated, DDS is a GPU
+    /// texture, TGA is rare). The report shows its size only.
+    NotResized(ImageFormat),
+    /// A format ez-CGER cannot load (WebP, HEIC, unknown). Worth a warning if the hcg uses it.
+    NotSupportedByApp(ImageFormat),
     /// The file could not be read as an image.
     Undecodable(String),
     /// Too many pixels to decode safely.
@@ -124,8 +116,6 @@ pub enum ImageAction {
 pub enum ImageWarning {
     /// The result (or the kept original) is still above the size limit.
     OverSizeLimit { bytes: u64, limit: u64 },
-    /// The border is almost entirely one colour; kept lossless in case the app keys on it.
-    PossibleKeyColor { rgb: [u8; 3] },
 }
 
 /// What happened to one image.
@@ -147,23 +137,24 @@ impl ImageOutcome {
     }
 }
 
-/// Applies the policy to one image file (contracts I1–I10 in issue #7). Never fails: problems
-/// become [`KeepReason`]s and [`ImageWarning`]s.
+/// Applies the policy to one image file (contracts in issue #7). `file_name` is only used to
+/// recognise TGA. Never fails: problems become [`KeepReason`]s and [`ImageWarning`]s.
 pub fn optimize_image<C: ImageCodec>(
     codec: &C,
+    file_name: &str,
     bytes: &[u8],
     policy: &ResizePolicy,
 ) -> ImageOutcome {
-    let probe = match codec.probe(bytes) {
+    let probe = match codec.probe(bytes, file_name) {
         Ok(p) => p,
         Err(e) => return ImageOutcome::unchanged(None, KeepReason::Undecodable(e.to_string())),
     };
     let keep = |reason| ImageOutcome::unchanged(Some(probe), reason);
-    if !matches!(
-        probe.format,
-        ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::Bmp
-    ) {
-        return keep(KeepReason::UnsupportedFormat(probe.format));
+    if !probe.format.supported_by_app() {
+        return keep(KeepReason::NotSupportedByApp(probe.format));
+    }
+    if !probe.format.resizable() {
+        return keep(KeepReason::NotResized(probe.format));
     }
     let Some((width, height)) = probe.dimensions else {
         return keep(KeepReason::Undecodable("image size is unknown".into()));
@@ -188,20 +179,8 @@ pub fn optimize_image<C: ImageCodec>(
     let (out_w, out_h) = codec.dimensions(&image);
     let mut warnings = Vec::new();
 
-    let uses_alpha = codec.uses_alpha(&image);
-    let lossless_input = matches!(probe.format, ImageFormat::Png | ImageFormat::Bmp);
-    let key_color = match policy.key_color_border_share {
-        Some(threshold) if lossless_input && !uses_alpha => codec
-            .dominant_border_color(&image)
-            .filter(|&(_, share)| share >= threshold)
-            .map(|(rgb, _)| rgb),
-        _ => None,
-    };
-    if let Some(rgb) = key_color {
-        warnings.push(ImageWarning::PossibleKeyColor { rgb });
-    }
-
-    let encoded = if uses_alpha || key_color.is_some() {
+    // Lossy JPEG is fine; only real transparency needs PNG.
+    let encoded = if codec.uses_alpha(&image) {
         codec
             .encode(&image, OutputFormat::Png)
             .map(|b| (b, OutputFormat::Png))
@@ -322,14 +301,13 @@ mod tests {
     use super::*;
     use std::cell::RefCell;
 
-    /// Fake image: size, alpha, border colour. Encoded size = pixels * quality / 100 / 4 bytes,
+    /// Fake image: size and alpha. Encoded size = pixels * quality / 100 / 4 bytes,
     /// or pixels / 2 for PNG, so tests control sizes exactly.
     #[derive(Clone)]
     struct FakeImage {
         w: u32,
         h: u32,
         alpha: bool,
-        border: Option<([u8; 3], f32)>,
     }
 
     struct FakeCodec {
@@ -351,12 +329,7 @@ mod tests {
                     format,
                     dimensions: Some((w, h)),
                 }),
-                image: FakeImage {
-                    w,
-                    h,
-                    alpha: false,
-                    border: None,
-                },
+                image: FakeImage { w, h, alpha: false },
                 decode_fails: false,
                 decodes: RefCell::new(0),
                 qualities: RefCell::new(Vec::new()),
@@ -368,7 +341,7 @@ mod tests {
         type Image = FakeImage;
         type Error = FakeError;
 
-        fn probe(&self, _: &[u8]) -> Result<ImageProbe, FakeError> {
+        fn probe(&self, _: &[u8], _: &str) -> Result<ImageProbe, FakeError> {
             self.probe.clone().map_err(FakeError)
         }
 
@@ -390,10 +363,6 @@ mod tests {
             img.alpha
         }
 
-        fn dominant_border_color(&self, img: &FakeImage) -> Option<([u8; 3], f32)> {
-            img.border
-        }
-
         fn encode(&self, img: &FakeImage, format: OutputFormat) -> Result<Vec<u8>, FakeError> {
             let pixels = img.w as usize * img.h as usize;
             let len = match format {
@@ -408,7 +377,7 @@ mod tests {
     }
 
     fn run(codec: &FakeCodec, input_len: usize) -> ImageOutcome {
-        optimize_image(codec, &vec![0; input_len], &ResizePolicy::default())
+        optimize_image(codec, "x", &vec![0; input_len], &ResizePolicy::default())
     }
 
     fn converted(o: &ImageOutcome) -> &Converted {
@@ -455,7 +424,7 @@ mod tests {
             max_bytes: 300_000,
             ..ResizePolicy::default()
         };
-        let o = optimize_image(&codec, &vec![0; 6_000_000], &policy);
+        let o = optimize_image(&codec, "x", &vec![0; 6_000_000], &policy);
         assert_eq!(converted(&o).format, OutputFormat::Jpeg { quality: 55 });
         assert_eq!(*codec.qualities.borrow(), [90, 85, 80, 75, 70, 65, 60, 55]);
         assert!(o.warnings.is_empty());
@@ -468,7 +437,7 @@ mod tests {
             max_bytes: 100_000,
             ..ResizePolicy::default()
         };
-        let o = optimize_image(&codec, &vec![0; 6_000_000], &policy);
+        let o = optimize_image(&codec, "x", &vec![0; 6_000_000], &policy);
         assert_eq!(converted(&o).format, OutputFormat::Jpeg { quality: 50 });
         assert_eq!(
             o.warnings,
@@ -487,7 +456,7 @@ mod tests {
             max_bytes: 1_000_000,
             ..ResizePolicy::default()
         };
-        let o = optimize_image(&codec, &vec![0; 9_000_000], &policy);
+        let o = optimize_image(&codec, "x", &vec![0; 9_000_000], &policy);
         // Fitted to 1920x1080; fake PNG = 2,073,600 / 2 bytes.
         assert_eq!(converted(&o).format, OutputFormat::Png);
         assert_eq!(
@@ -501,11 +470,25 @@ mod tests {
 
     #[test]
     fn i6_unsupported_and_broken_files_are_kept() {
-        for format in [ImageFormat::Gif, ImageFormat::WebP, ImageFormat::Other] {
+        for format in [ImageFormat::Gif, ImageFormat::Dds, ImageFormat::Tga] {
+            let codec = FakeCodec::new(format, 4000, 4000);
+            let o = run(&codec, 9_000_000);
+            assert_eq!(
+                o.action,
+                ImageAction::Unchanged(KeepReason::NotResized(format))
+            );
+            assert_eq!(
+                o.probe.and_then(|p| p.dimensions),
+                Some((4000, 4000)),
+                "size for the report"
+            );
+            assert_eq!(*codec.decodes.borrow(), 0);
+        }
+        for format in [ImageFormat::WebP, ImageFormat::Heic, ImageFormat::Other] {
             let codec = FakeCodec::new(format, 4000, 4000);
             assert_eq!(
                 run(&codec, 9_000_000).action,
-                ImageAction::Unchanged(KeepReason::UnsupportedFormat(format))
+                ImageAction::Unchanged(KeepReason::NotSupportedByApp(format))
             );
         }
         let mut codec = FakeCodec::new(ImageFormat::Jpeg, 4000, 3000);
@@ -533,34 +516,12 @@ mod tests {
     }
 
     #[test]
-    fn i9_key_colour_guard_keeps_lossless_inputs_png() {
-        let mut codec = FakeCodec::new(ImageFormat::Png, 1920, 1080);
-        codec.image.border = Some(([0, 0, 16], 0.99));
+    fn opaque_png_becomes_jpeg() {
+        let codec = FakeCodec::new(ImageFormat::Png, 1920, 1080);
         let o = run(&codec, 6_000_000);
-        assert_eq!(converted(&o).format, OutputFormat::Png);
-        assert_eq!(
-            o.warnings,
-            [ImageWarning::PossibleKeyColor { rgb: [0, 0, 16] }]
-        );
-
-        // Below the threshold, or a JPEG input, or the guard disabled: JPEG.
-        codec.image.border = Some(([0, 0, 16], 0.5));
         assert!(matches!(
-            converted(&run(&codec, 6_000_000)).format,
-            OutputFormat::Jpeg { .. }
-        ));
-        let mut jpeg = FakeCodec::new(ImageFormat::Jpeg, 4000, 3000);
-        jpeg.image.border = Some(([0, 0, 16], 1.0));
-        let o = run(&jpeg, 9_000_000);
-        assert!(matches!(converted(&o).format, OutputFormat::Jpeg { .. }) && o.warnings.is_empty());
-        codec.image.border = Some(([0, 0, 16], 1.0));
-        let off = ResizePolicy {
-            key_color_border_share: None,
-            ..ResizePolicy::default()
-        };
-        assert!(matches!(
-            converted(&optimize_image(&codec, &vec![0; 6_000_000], &off)).format,
-            OutputFormat::Jpeg { .. }
+            converted(&o).format,
+            OutputFormat::Jpeg { quality: 90 }
         ));
     }
 
@@ -572,7 +533,7 @@ mod tests {
             max_bytes: 200_000,
             ..ResizePolicy::default()
         };
-        let o = optimize_image(&codec, &vec![0; 250_000], &policy);
+        let o = optimize_image(&codec, "x", &vec![0; 250_000], &policy);
         assert_eq!(o.action, ImageAction::Unchanged(KeepReason::NoGain));
         assert_eq!(
             o.warnings,
@@ -686,13 +647,6 @@ mod tests {
                 ..d()
             }),
             PolicyError::ZeroStep
-        );
-        assert_eq!(
-            bad(ResizePolicy {
-                key_color_border_share: Some(1.5),
-                ..d()
-            }),
-            PolicyError::InvalidKeyShare(1.5)
         );
     }
 }

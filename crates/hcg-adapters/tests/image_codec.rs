@@ -26,7 +26,16 @@ fn sample(path: &str) -> Vec<u8> {
 }
 
 fn optimize(bytes: &[u8]) -> ImageOutcome {
-    optimize_image(&PureRustCodec::default(), bytes, &ResizePolicy::default())
+    optimize_named("image", bytes)
+}
+
+fn optimize_named(name: &str, bytes: &[u8]) -> ImageOutcome {
+    optimize_image(
+        &PureRustCodec::default(),
+        name,
+        bytes,
+        &ResizePolicy::default(),
+    )
 }
 
 fn converted(o: &ImageOutcome) -> &Converted {
@@ -181,9 +190,9 @@ fn alpha_png_stays_png() {
     assert!(out.to_rgba8().pixels().any(|p| p.0[3] < 255), "alpha lost");
 }
 
-/// I9: a lossless image with a uniform border colour stays PNG, keeps the exact colour, warns.
+/// Lossy JPEG is fine: an opaque image with a flat background becomes JPEG (no colour-key guard).
 #[test]
-fn key_colour_background_stays_lossless() {
+fn opaque_png_with_flat_background_becomes_jpeg() {
     let img = RgbImage::from_fn(2400, 1350, |x, y| {
         if (600..1800).contains(&x) && (300..1050).contains(&y) {
             Rgb([(x % 256) as u8, (y % 256) as u8, 200])
@@ -192,21 +201,8 @@ fn key_colour_background_stays_lossless() {
         }
     });
     let o = optimize(&png(&DynamicImage::ImageRgb8(img)));
-    let c = converted(&o);
-    assert_eq!(c.format, OutputFormat::Png);
-    assert_eq!(
-        o.warnings,
-        [ImageWarning::PossibleKeyColor { rgb: [0, 0, 16] }]
-    );
-    let (_, out) = decode(&c.bytes);
-    let out = out.to_rgb8();
-    for (x, y) in [(0, 0), (1919, 0), (0, 1079), (1919, 1079), (100, 540)] {
-        assert_eq!(
-            out.get_pixel(x, y).0,
-            [0, 0, 16],
-            "key colour changed at {x},{y}"
-        );
-    }
+    assert!(matches!(converted(&o).format, OutputFormat::Jpeg { .. }));
+    assert!(o.warnings.is_empty());
 }
 
 /// I8: the EXIF orientation of the source is carried over; pixels stay in stored orientation.
@@ -238,19 +234,44 @@ fn exif_orientation_is_kept() {
     );
 }
 
-/// I6: unsupported or broken files are kept, never panic.
+/// I6: app formats this tool does not shrink keep their size for the report; formats the app
+/// cannot load are flagged; nothing panics.
 #[test]
-fn unsupported_and_broken_files_are_kept() {
-    let gif = b"GIF89a\x10\x00\x10\x00\x00\x00\x00;".to_vec();
+fn other_formats_are_kept() {
+    let gif = b"GIF89a\x40\x01\xf0\x00\x00\x00\x00;".to_vec(); // 320x240
+    let mut dds = b"DDS \x7c\0\0\0\x07\x10\0\0".to_vec();
+    dds.extend_from_slice(&480u32.to_le_bytes()); // height
+    dds.extend_from_slice(&640u32.to_le_bytes()); // width
+    dds.resize(128, 0);
+    let mut tga = vec![0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    tga.extend_from_slice(&800u16.to_le_bytes());
+    tga.extend_from_slice(&600u16.to_le_bytes());
+    tga.extend_from_slice(&[32, 8]);
+    for (name, bytes, format, size) in [
+        ("anim.gif", gif, ImageFormat::Gif, (320, 240)),
+        ("tex.dds", dds, ImageFormat::Dds, (640, 480)),
+        ("logo.TGA", tga, ImageFormat::Tga, (800, 600)),
+    ] {
+        let o = optimize_named(name, &bytes);
+        assert_eq!(
+            o.action,
+            ImageAction::Unchanged(KeepReason::NotResized(format)),
+            "{name}"
+        );
+        assert_eq!(o.probe.and_then(|p| p.dimensions), Some(size), "{name}");
+    }
     let webp = b"RIFF\x24\0\0\0WEBPVP8 ".to_vec();
-    for (bytes, format) in [
-        (gif, ImageFormat::Gif),
-        (webp, ImageFormat::WebP),
-        (b"hello".to_vec(), ImageFormat::Other),
+    let heic = b"\0\0\0\x18ftypheic\0\0\0\0mif1heic".to_vec();
+    for (name, bytes, format) in [
+        // Detected by signature even with a misleading extension.
+        ("photo.jpg", webp, ImageFormat::WebP),
+        ("IMG_0001.HEIC", heic, ImageFormat::Heic),
+        ("notes.tga.txt", b"hello".to_vec(), ImageFormat::Other),
     ] {
         assert_eq!(
-            optimize(&bytes).action,
-            ImageAction::Unchanged(KeepReason::UnsupportedFormat(format))
+            optimize_named(name, &bytes).action,
+            ImageAction::Unchanged(KeepReason::NotSupportedByApp(format)),
+            "{name}"
         );
     }
     // A truncated photo: the header is readable but decoding fails.
@@ -277,6 +298,7 @@ fn pixel_limit_is_respected() {
     };
     let o = optimize_image(
         &PureRustCodec::default(),
+        "big_0.jpg",
         &sample("layered/0D373705big_0.jpg"),
         &policy,
     );

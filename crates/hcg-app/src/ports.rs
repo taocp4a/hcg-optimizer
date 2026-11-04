@@ -4,16 +4,38 @@
 //! E.g. the default implementation uses the pure-Rust `image` crate; the web frontend may plug in
 //! the browser's Canvas encoder if needed.
 
-/// Image file formats the use cases tell apart. Detected from the file contents, not the name.
+/// Image file formats the use cases tell apart. Detected from the file's leading signature
+/// bytes, not its name; only TGA (which has no signature) is recognised by its extension.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ImageFormat {
+    // ez-CGER's image-open dialog accepts exactly these six.
     Jpeg,
     Png,
     Bmp,
     Gif,
+    Dds,
+    Tga,
+    // Not accepted by ez-CGER.
     WebP,
-    /// Anything else (TGA, corrupt data, ...).
+    Heic,
+    /// Anything else (corrupt data, other formats).
     Other,
+}
+
+impl ImageFormat {
+    /// Formats ez-CGER can load (its image-open dialog lists exactly these).
+    pub fn supported_by_app(self) -> bool {
+        matches!(
+            self,
+            Self::Jpeg | Self::Png | Self::Bmp | Self::Gif | Self::Dds | Self::Tga
+        )
+    }
+
+    /// Formats this tool shrinks. GIF (may be animated), DDS (GPU texture) and TGA (rare) are
+    /// left as they are.
+    pub fn resizable(self) -> bool {
+        matches!(self, Self::Jpeg | Self::Png | Self::Bmp)
+    }
 }
 
 /// Header-level facts about an image file.
@@ -38,8 +60,9 @@ pub trait ImageCodec {
     type Image;
     type Error: std::error::Error + Send + Sync + 'static;
 
-    /// Reads only what is needed to know the format and size.
-    fn probe(&self, bytes: &[u8]) -> Result<ImageProbe, Self::Error>;
+    /// Reads only what is needed to know the format and size. `file_name` is used only to
+    /// recognise TGA, which has no signature.
+    fn probe(&self, bytes: &[u8], file_name: &str) -> Result<ImageProbe, Self::Error>;
 
     /// Decodes and, if larger, downscales to fit within `max_w`×`max_h` keeping the aspect ratio.
     /// Never upscales. Pixels stay in stored orientation; the orientation tag is kept for
@@ -50,9 +73,6 @@ pub trait ImageCodec {
 
     /// True if any pixel has alpha < 255.
     fn uses_alpha(&self, image: &Self::Image) -> bool;
-
-    /// The most common colour among the border pixels and its share (0.0–1.0) of the border.
-    fn dominant_border_color(&self, image: &Self::Image) -> Option<([u8; 3], f32)>;
 
     fn encode(&self, image: &Self::Image, format: OutputFormat) -> Result<Vec<u8>, Self::Error>;
 }
