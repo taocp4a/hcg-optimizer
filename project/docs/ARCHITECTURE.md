@@ -131,4 +131,4 @@ The remaining peak is reading the zip: the input zip and its inflated files coex
 
 - **CI (`.github/workflows/ci.yml`):** runs `preflight.sh` on every push and PR.
 - **Pages (`.github/workflows/pages.yml`):** on push to `main`, builds `dist/` with `build_web.sh` and deploys to GitHub Pages. Set Pages Source to "GitHub Actions" in the repository settings.
-- **CLI:** for development and testing only; not distributed. Run with `cargo run -p hcg-cli -- <zip>`.
+- **CLI** (`hcg-optimizer`, issue #15): for development and testing only; not distributed. `cargo run -p hcg-cli -- <zip or .hcg> [-o out.zip] [--dry-run] [--json] [--force] [--max-size WxH] [--max-bytes SIZE] [--quality Q] [--min-quality Q]`. It never overwrites the input, refuses an existing output without `--force`, writes through a temporary file, and exits with 0 (ok), 1 (a bundle failed / no hcg), 2 (usage), 3 (I/O).
