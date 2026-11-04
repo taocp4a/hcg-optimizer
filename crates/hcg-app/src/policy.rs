@@ -92,8 +92,53 @@ pub enum KeepReason {
     TooManyPixels { width: u32, height: u32, limit: u64 },
     /// Encoding failed.
     EncodeFailed(String),
-    /// Re-encoding would not make it smaller (same format and size).
+    /// Re-encoding with the same format and size would not save at least
+    /// [`MIN_SAVING_PERCENT`] of the original.
     NoGain,
+}
+
+/// What analyze decides for an image from its header alone (no decoding).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlannedAction {
+    Keep(KeepReason),
+    /// Decode and re-encode; `target` is the size after fitting (may equal the original size
+    /// when only the file size is over the limit).
+    Shrink {
+        target: (u32, u32),
+    },
+}
+
+/// A re-encode with the same format and size must save at least this share of the original
+/// size, or the original is kept (avoids generation loss for marginal gains; makes a second run
+/// over the tool's own output a no-op).
+pub const MIN_SAVING_PERCENT: u64 = 10;
+
+/// Decides from header facts alone whether an image will be shrunk (shared by analyze and
+/// [`optimize_image`]).
+pub fn plan_image(probe: &ImageProbe, byte_len: u64, policy: &ResizePolicy) -> PlannedAction {
+    if !probe.format.supported_by_app() {
+        return PlannedAction::Keep(KeepReason::NotSupportedByApp(probe.format));
+    }
+    if !probe.format.resizable() {
+        return PlannedAction::Keep(KeepReason::NotResized(probe.format));
+    }
+    let Some((width, height)) = probe.dimensions else {
+        return PlannedAction::Keep(KeepReason::Undecodable("image size is unknown".into()));
+    };
+    if u64::from(width) * u64::from(height) > policy.max_pixels {
+        return PlannedAction::Keep(KeepReason::TooManyPixels {
+            width,
+            height,
+            limit: policy.max_pixels,
+        });
+    }
+    let fits = width <= policy.max_width && height <= policy.max_height;
+    if fits && byte_len <= policy.max_bytes {
+        return PlannedAction::Keep(KeepReason::WithinLimits);
+    }
+    PlannedAction::Shrink {
+        target: fit_within(width, height, policy.max_width, policy.max_height),
+    }
 }
 
 /// A converted image.
@@ -150,27 +195,14 @@ pub fn optimize_image<C: ImageCodec>(
         Err(e) => return ImageOutcome::unchanged(None, KeepReason::Undecodable(e.to_string())),
     };
     let keep = |reason| ImageOutcome::unchanged(Some(probe), reason);
-    if !probe.format.supported_by_app() {
-        return keep(KeepReason::NotSupportedByApp(probe.format));
+    let original_len = bytes.len() as u64;
+    if let PlannedAction::Keep(reason) = plan_image(&probe, original_len, policy) {
+        return keep(reason);
     }
-    if !probe.format.resizable() {
-        return keep(KeepReason::NotResized(probe.format));
-    }
+    // plan_image only plans a shrink when the size is known.
     let Some((width, height)) = probe.dimensions else {
         return keep(KeepReason::Undecodable("image size is unknown".into()));
     };
-    if u64::from(width) * u64::from(height) > policy.max_pixels {
-        return keep(KeepReason::TooManyPixels {
-            width,
-            height,
-            limit: policy.max_pixels,
-        });
-    }
-    let original_len = bytes.len() as u64;
-    let fits = width <= policy.max_width && height <= policy.max_height;
-    if fits && original_len <= policy.max_bytes {
-        return keep(KeepReason::WithinLimits);
-    }
 
     let image = match codec.decode_fit(bytes, policy.max_width, policy.max_height) {
         Ok(image) => image,
@@ -202,7 +234,8 @@ pub fn optimize_image<C: ImageCodec>(
         (probe.format, format),
         (ImageFormat::Jpeg, OutputFormat::Jpeg { .. }) | (ImageFormat::Png, OutputFormat::Png)
     );
-    if same_format && (out_w, out_h) == (width, height) && out.len() as u64 >= original_len {
+    let saves_enough = (out.len() as u64) * 100 <= original_len * (100 - MIN_SAVING_PERCENT);
+    if same_format && (out_w, out_h) == (width, height) && !saves_enough {
         warnings.push(ImageWarning::OverSizeLimit {
             bytes: original_len,
             limit: policy.max_bytes,
@@ -541,6 +574,55 @@ mod tests {
                 bytes: 250_000,
                 limit: 200_000
             }]
+        );
+    }
+
+    #[test]
+    fn i10_reencode_must_save_ten_percent() {
+        // 1920x1080 JPEG over a 400,000-byte limit: q75 gives 388,800 bytes.
+        let codec = FakeCodec::new(ImageFormat::Jpeg, 1920, 1080);
+        let policy = ResizePolicy {
+            max_bytes: 400_000,
+            ..ResizePolicy::default()
+        };
+        // 388,800 <= 90% of 480,000: accepted.
+        let o = optimize_image(&codec, "x", &vec![0; 480_000], &policy);
+        assert_eq!(converted(&o).format, OutputFormat::Jpeg { quality: 75 });
+        // 388,800 > 90% of 420,000: not worth the generation loss.
+        let o = optimize_image(&codec, "x", &vec![0; 420_000], &policy);
+        assert_eq!(o.action, ImageAction::Unchanged(KeepReason::NoGain));
+    }
+
+    #[test]
+    fn plan_image_needs_only_the_header() {
+        let probe = |format, w, h| ImageProbe {
+            format,
+            dimensions: Some((w, h)),
+        };
+        let p = ResizePolicy::default();
+        assert_eq!(
+            plan_image(&probe(ImageFormat::Jpeg, 6000, 4000), 23_000_000, &p),
+            PlannedAction::Shrink {
+                target: (1620, 1080)
+            }
+        );
+        assert_eq!(
+            plan_image(&probe(ImageFormat::Png, 1920, 1080), 6_000_000, &p),
+            PlannedAction::Shrink {
+                target: (1920, 1080)
+            }
+        );
+        assert_eq!(
+            plan_image(&probe(ImageFormat::Png, 600, 400), 3_000, &p),
+            PlannedAction::Keep(KeepReason::WithinLimits)
+        );
+        assert_eq!(
+            plan_image(&probe(ImageFormat::Gif, 6000, 4000), 9_000_000, &p),
+            PlannedAction::Keep(KeepReason::NotResized(ImageFormat::Gif))
+        );
+        assert_eq!(
+            plan_image(&probe(ImageFormat::WebP, 600, 400), 3_000, &p),
+            PlannedAction::Keep(KeepReason::NotSupportedByApp(ImageFormat::WebP))
         );
     }
 

@@ -108,15 +108,24 @@ pub fn pair_bundles(files: Vec<InputFile>) -> Pairing {
     pairing
 }
 
+/// One bundle's share of the output: the optimized bundle, or `None` if it could not be
+/// processed (then only the report is written), plus its report text.
+#[derive(Debug, Clone, Copy)]
+pub struct PackagedBundle<'a> {
+    pub stem: &'a str,
+    pub bundle: Option<&'a Bundle>,
+    pub report: &'a str,
+}
+
 /// Lays out the output package. Each bundle goes into its own `<stem>_optimized/` folder with
-/// `<stem>.hcg`, the image folder `<stem>/` (if it has images), and `report.txt`. Extracting the
-/// result next to the original therefore never overwrites it. Folder names are made unique if
-/// two bundles share a stem.
-pub fn output_files(results: &[(Bundle, String)]) -> Vec<OutputFile> {
+/// `<stem>.hcg`, the image folder `<stem>/` (if it has images), and `report.txt`; a bundle that
+/// could not be processed gets only `report.txt`. Extracting the result next to the original
+/// therefore never overwrites it. Folder names are made unique if two bundles share a stem.
+pub fn output_files(results: &[PackagedBundle<'_>]) -> Vec<OutputFile> {
     let mut used: Vec<String> = Vec::new();
     let mut out = Vec::new();
-    for (bundle, report) in results {
-        let base = format!("{}_optimized", bundle.stem);
+    for result in results {
+        let base = format!("{}_optimized", result.stem);
         let mut root = base.clone();
         let mut n = 2;
         while used.iter().any(|u| u.eq_ignore_ascii_case(&root)) {
@@ -125,19 +134,21 @@ pub fn output_files(results: &[(Bundle, String)]) -> Vec<OutputFile> {
         }
         used.push(root.clone());
 
-        out.push(OutputFile {
-            path: format!("{root}/{}.hcg", bundle.stem),
-            bytes: bundle.hcg.clone(),
-        });
-        for image in &bundle.images {
+        if let Some(bundle) = result.bundle {
             out.push(OutputFile {
-                path: format!("{root}/{}/{}", bundle.stem, image.name),
-                bytes: image.bytes.clone(),
+                path: format!("{root}/{}.hcg", bundle.stem),
+                bytes: bundle.hcg.clone(),
             });
+            for image in &bundle.images {
+                out.push(OutputFile {
+                    path: format!("{root}/{}/{}", bundle.stem, image.name),
+                    bytes: image.bytes.clone(),
+                });
+            }
         }
         out.push(OutputFile {
             path: format!("{root}/report.txt"),
-            bytes: report.as_bytes().to_vec(),
+            bytes: result.report.as_bytes().to_vec(),
         });
     }
     out
@@ -287,9 +298,23 @@ mod tests {
                 })
                 .collect(),
         };
+        let (a, big_a) = (bundle("a", &["1.jpg"]), bundle("A", &[]));
         let out = output_files(&[
-            (bundle("a", &["1.jpg"]), "report a".into()),
-            (bundle("A", &[]), "report A".into()),
+            PackagedBundle {
+                stem: "a",
+                bundle: Some(&a),
+                report: "report a",
+            },
+            PackagedBundle {
+                stem: "A",
+                bundle: Some(&big_a),
+                report: "report A",
+            },
+            PackagedBundle {
+                stem: "broken",
+                bundle: None,
+                report: "could not read",
+            },
         ]);
         let paths: Vec<_> = out.iter().map(|f| f.path.as_str()).collect();
         assert_eq!(
@@ -300,6 +325,7 @@ mod tests {
                 "a_optimized/report.txt",
                 "A_optimized_2/A.hcg",
                 "A_optimized_2/report.txt",
+                "broken_optimized/report.txt",
             ]
         );
         assert_eq!(out[2].bytes, b"report a");
