@@ -15,6 +15,11 @@ path = "src/main.rs"
 hcg-format.workspace = true
 hcg-app.workspace = true
 hcg-adapters.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true
