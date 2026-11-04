@@ -1,6 +1,7 @@
-//! Inspection report (issue #11): a [`BundleResult`] becomes structured data, serialized as
-//! `report.json`. Viewers render it; the JSON also carries a one-line headline and a plain-text
-//! rendering (`text`) built from the same data. English for now; every warning has a stable
+//! Inspection report (issue #11): a [`BundleResult`] becomes structured data ([`Report`],
+//! serializable as JSON for a viewer). It also carries a one-line headline and a plain-text
+//! rendering (`text`) built from the same data; the output zip contains that text as
+//! `report.txt`. English for now; every warning has a stable
 //! `code` so a viewer can translate.
 
 use serde::Serialize;

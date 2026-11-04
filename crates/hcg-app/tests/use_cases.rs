@@ -313,9 +313,9 @@ fn broken_bundle_is_isolated() {
     assert_eq!(
         paths,
         [
-            "old_optimized/report.json",
+            "old_optimized/report.txt",
             "v12_optimized/v12.hcg",
-            "v12_optimized/report.json"
+            "v12_optimized/report.txt"
         ]
     );
 }

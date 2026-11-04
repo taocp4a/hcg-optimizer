@@ -1,6 +1,8 @@
-# report.json format (schema 1)
+# Report data format (schema 1)
 
-Every bundle in the output zip has `<stem>_optimized/report.json`, written by `hcg_app::report` (issue #11). The tool does not render it; **a viewer does** (the web page). For a quick display, use `summary.headline` (one sentence) or `text` (the whole report as plain text, built from the same fields).
+The inspection report is built as **structured data** (`hcg_app::report::Report`, issue #11) and serialized as JSON for viewers: the web page gets it from `RunResult::reports` / `report::to_json`. The data carries `summary.headline` (one sentence) and `text` (the whole report as plain text, built from the same fields).
+
+**In the output zip**, each bundle folder holds only the rendered text: `<stem>_optimized/report.txt`, written as UTF-8 with a byte-order mark and CRLF line endings so every version of Windows Notepad shows it correctly. No JSON goes into the zip.
 
 Conventions:
 - Field names and enum values are `snake_case`. New fields may be added within schema 1; removing or renaming one bumps `schema`.

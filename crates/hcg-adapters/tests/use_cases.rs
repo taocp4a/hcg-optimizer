@@ -216,17 +216,15 @@ fn all_samples_in_one_run() {
     );
 }
 
-/// report.json from a real run: status, counts, the rename, and the over-limit warning.
+/// The report of a real run: status, counts, the rename, the over-limit warning; report.txt in
+/// the zip is its text.
 #[test]
-fn speedtest_report_json() {
+fn speedtest_report() {
     let policy = ResizePolicy::default();
     let result = process(sample_inputs(Some(&["speedtest"])));
-    let out = result.package(&policy);
-    let report = out
-        .iter()
-        .find(|f| f.path == "speedtest_optimized/report.json")
-        .expect("report");
-    let json: serde_json::Value = serde_json::from_slice(&report.bytes).expect("valid JSON");
+    let report = &result.reports(&policy)[0];
+    let json: serde_json::Value =
+        serde_json::from_str(&hcg_app::report::to_json(report)).expect("valid JSON");
     assert_eq!(json["status"], "ok");
     assert_eq!(json["summary"]["images_total"], 3);
     assert_eq!(json["summary"]["images_shrunk"], 2);
@@ -242,10 +240,19 @@ fn speedtest_report_json() {
         ["over_size_limit"],
         "the noise image stays over 1 MB"
     );
-    let text = json["text"].as_str().expect("text");
+    let text = &report.text;
     assert!(
         text.contains("renamed to") && text.contains("C:\\test\\bg_1080_noise.jpg"),
         "{text}"
+    );
+
+    let out = result.package(&policy);
+    let file = out
+        .iter()
+        .find(|f| f.path == "speedtest_optimized/report.txt")
+        .expect("report.txt");
+    assert!(
+        file.bytes.starts_with(&[0xEF, 0xBB, 0xBF]) && file.bytes.windows(2).any(|w| w == b"\r\n")
     );
     eprintln!("{text}");
 }
