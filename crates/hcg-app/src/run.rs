@@ -7,6 +7,7 @@ use crate::bundle::Bundle;
 use crate::package::{InputFile, OutputFile, PackagedBundle, output_files, pair_bundles};
 use crate::policy::ResizePolicy;
 use crate::ports::{ImageCodec, Progress};
+use crate::report::{RunNotes, build_report, to_json};
 
 /// Plans for every bundle in the input, plus files that belong to no bundle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,8 +35,21 @@ pub struct RunResult {
 }
 
 impl RunResult {
+    /// The output package with the standard `report.json` (see [`crate::report`]).
+    pub fn package(&self, policy: &ResizePolicy) -> Vec<OutputFile> {
+        self.output_files(|bundle| to_json(&build_report(bundle, &self.notes(), policy)))
+    }
+
+    /// Zip leftovers, as the report shows them.
+    pub fn notes(&self) -> RunNotes {
+        RunNotes {
+            unpaired: self.unpaired.clone(),
+            ignored: self.ignored.len(),
+        }
+    }
+
     /// The output package: per bundle `<stem>_optimized/` with the optimized files (or only the
-    /// report if the bundle failed) and `report.txt` rendered by `report`.
+    /// report if the bundle failed) and `report.json` rendered by `report`.
     pub fn output_files(&self, report: impl Fn(&BundleResult) -> String) -> Vec<OutputFile> {
         let reports: Vec<String> = self.bundles.iter().map(&report).collect();
         let packaged: Vec<PackagedBundle<'_>> = self

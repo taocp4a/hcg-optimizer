@@ -1,0 +1,11 @@
+hcg-optimizer report: v00_empty.hcg
+===================================
+Not optimized: the file could not be processed. 1 warning.
+
+FAILED: The hcg file could not be read: file header: unsupported file version 0x77 (only 0x78 is supported) at 0x8
+What to do: Open the file in ez-CGER and save it again (the current version saves format 0x78), then try again.
+
+Warnings
+  ! The hcg file could not be read: file header: unsupported file version 0x77 (only 0x78 is supported) at 0x8
+
+Limits: 1920x1080, 1.0 MB, JPEG quality 90 down to 50.

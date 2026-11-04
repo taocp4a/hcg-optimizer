@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "hcg-optimizer",
+    "version": "0.1.0"
+  },
+  "bundle": {
+    "stem": "v00_empty",
+    "hcg_path": "v00_empty.hcg",
+    "folder_path": "v00_empty"
+  },
+  "status": "failed",
+  "summary": {
+    "headline": "Not optimized: the file could not be processed. 1 warning.",
+    "images_total": 0,
+    "images_shrunk": 0,
+    "images_renamed": 0,
+    "bytes_before": 0,
+    "bytes_after": 0,
+    "warnings": 1
+  },
+  "failure": {
+    "code": "unsupported_version",
+    "message": "The hcg file could not be read: file header: unsupported file version 0x77 (only 0x78 is supported) at 0x8",
+    "advice": "Open the file in ez-CGER and save it again (the current version saves format 0x78), then try again."
+  },
+  "hcg": null,
+  "policy": {
+    "max_width": 1920,
+    "max_height": 1080,
+    "max_bytes": 1048576,
+    "jpeg_quality": 90,
+    "min_jpeg_quality": 50
+  },
+  "images": [],
+  "missing": [],
+  "embedded": [],
+  "transitions": [],
+  "unreferenced_files": 0,
+  "other_files": {
+    "unpaired": [],
+    "ignored": 0
+  },
+  "warnings": [
+    {
+      "code": "unsupported_version",
+      "message": "The hcg file could not be read: file header: unsupported file version 0x77 (only 0x78 is supported) at 0x8",
+      "file": null
+    }
+  ],
+  "text": "hcg-optimizer report: v00_empty.hcg\n===================================\nNot optimized: the file could not be processed. 1 warning.\n\nFAILED: The hcg file could not be read: file header: unsupported file version 0x77 (only 0x78 is supported) at 0x8\nWhat to do: Open the file in ez-CGER and save it again (the current version saves format 0x78), then try again.\n\nWarnings\n  ! The hcg file could not be read: file header: unsupported file version 0x77 (only 0x78 is supported) at 0x8\n\nLimits: 1920x1080, 1.0 MB, JPEG quality 90 down to 50.\n"
+}
