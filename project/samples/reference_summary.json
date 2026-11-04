@@ -1,0 +1,521 @@
+{
+ "fmt/v00_empty.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 0,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v01_2pages.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 0,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   },
+   {
+    "height": 1080,
+    "object_count": 0,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v02_textA.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v03_textAB.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v04_textAB_moved.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v05_font.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v06_color.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v07_image.hcg": {
+  "global_objects": 0,
+  "images": [
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v08_image_moved.hcg": {
+  "global_objects": 0,
+  "images": [
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v09_rect.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v10_bg.hcg": {
+  "global_objects": 1,
+  "images": [
+   {
+    "folder_file_name": "D4E3A7EAbg_1080_small.jpg",
+    "layer": 0,
+    "object": 0,
+    "page": null,
+    "path": "C:\\test\\bg_1080_small.jpg",
+    "role": "primary",
+    "stamp": 3177940876203592
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 0,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v11_two_images.hcg": {
+  "global_objects": 0,
+  "images": [
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   },
+   {
+    "folder_file_name": "74EB6CEBmark_2.png",
+    "layer": 0,
+    "object": 1,
+    "page": 0,
+    "path": "C:\\test\\mark_2.png",
+    "role": "primary",
+    "stamp": 3177945114533080
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 2,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/v12_sameimg_twice.hcg": {
+  "global_objects": 0,
+  "images": [
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   },
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 1,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 2,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "fmt/wo_images.hcg": {
+  "global_objects": 0,
+  "images": [
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   },
+   {
+    "folder_file_name": "74EB6CEBmark_2.png",
+    "layer": 0,
+    "object": 1,
+    "page": 0,
+    "path": "C:\\test\\mark_2.png",
+    "role": "primary",
+    "stamp": 3177945114533080
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 2,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "large/speedtest.hcg": {
+  "global_objects": 1,
+  "images": [
+   {
+    "folder_file_name": "D727E722bg_6000x4000_photo.jpg",
+    "layer": 0,
+    "object": 0,
+    "page": null,
+    "path": "C:\\test\\bg_6000x4000_photo.jpg",
+    "role": "primary",
+    "stamp": 3177940876203604
+   },
+   {
+    "folder_file_name": "D4E3A7EAbg_1080_small.jpg",
+    "layer": 0,
+    "object": 0,
+    "page": 2,
+    "path": "C:\\test\\bg_1080_small.jpg",
+    "role": "primary",
+    "stamp": 3177940876203592
+   },
+   {
+    "folder_file_name": "2D00575Abg_1080_noise.png",
+    "layer": 0,
+    "object": 0,
+    "page": 3,
+    "path": "C:\\test\\bg_1080_noise.png",
+    "role": "primary",
+    "stamp": 3177940876203592
+   },
+   {
+    "folder_file_name": "D727E722bg_6000x4000_photo.jpg",
+    "layer": 0,
+    "object": 0,
+    "page": 4,
+    "path": "C:\\test\\bg_6000x4000_photo.jpg",
+    "role": "primary",
+    "stamp": 3177940876203604
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   },
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   },
+   {
+    "height": 1080,
+    "object_count": 2,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   },
+   {
+    "height": 1080,
+    "object_count": 2,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   },
+   {
+    "height": 1080,
+    "object_count": 2,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "rev/i01_image_alpha96.hcg": {
+  "global_objects": 0,
+  "images": [
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "rev/i04_sequence3.hcg": {
+  "global_objects": 0,
+  "images": [
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "primary",
+    "stamp": 3177945114533072
+   },
+   {
+    "folder_file_name": "28BD2D7Emark_1.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_1.png",
+    "role": "sequence:0",
+    "stamp": 3177945114533072
+   },
+   {
+    "folder_file_name": "C38A967Dmark_2.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_2.png",
+    "role": "sequence:1",
+    "stamp": 3177945114533072
+   },
+   {
+    "folder_file_name": "2C48FD43mark_3.png",
+    "layer": 0,
+    "object": 0,
+    "page": 0,
+    "path": "C:\\test\\mark_3.png",
+    "role": "sequence:2",
+    "stamp": 3177945114533072
+   }
+  ],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "rev/p01_page2_effect_L2R_2s.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 0,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   },
+   {
+    "height": 1080,
+    "object_count": 0,
+    "transition_enabled": 1,
+    "transition_kind": 2,
+    "transition_ms": 2000,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "rev/r05_corners.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ },
+ "rev/t09_twolines.hcg": {
+  "global_objects": 0,
+  "images": [],
+  "pages": [
+   {
+    "height": 1080,
+    "object_count": 1,
+    "transition_enabled": 0,
+    "transition_kind": 0,
+    "transition_ms": 0,
+    "width": 1920
+   }
+  ],
+  "version": 120
+ }
+}
