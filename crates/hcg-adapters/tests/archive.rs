@@ -4,7 +4,9 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 use hcg_adapters::archive::{ArchiveError, ZipLimits, read_zip, write_zip};
-use hcg_app::package::{InputFile, NameEncoding, OutputFile, output_files, pair_bundles};
+use hcg_app::package::{
+    InputFile, NameEncoding, OutputFile, PackagedBundle, output_files, pair_bundles,
+};
 use zip::{CompressionMethod, ZipArchive};
 
 fn samples_dir() -> PathBuf {
@@ -313,8 +315,12 @@ fn z5_zip_to_bundles_and_back() {
 
     let results: Vec<_> = pairing
         .bundles
-        .into_iter()
-        .map(|b| (b, "report".to_string()))
+        .iter()
+        .map(|b| PackagedBundle {
+            stem: &b.stem,
+            bundle: Some(b),
+            report: "report",
+        })
         .collect();
     let out = output_files(&results);
     let back = read(&write_zip(&out).expect("write")).expect("read");
