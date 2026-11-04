@@ -47,7 +47,9 @@ Format spec: [`project/docs/HCG_FORMAT.md`](project/docs/HCG_FORMAT.md). Check t
 ├── web/                       # static GitHub Pages front end (HTML/CSS/JS)
 ├── project/                   # everything that is not code
 │   ├── docs/                  # requirements, format spec, report format, architecture, dependencies
-│   ├── scripts/               # preflight.sh, check_layers.py, build_web.sh, reference_roundtrip.sh, reference_summary.py
+│   ├── scripts/               # preflight.sh, check_layers.py, build_web.sh, reference_roundtrip.sh, reference_summary.py,
+│   │                          # bench_memory.sh + make_bench_sample.py (time/memory on a 204-page project)
+│   ├── bench/                 # benchmark crate used by bench_memory.sh (not a workspace member)
 │   ├── reference/             # Python reference implementation (hcg_parse.py, hcg_write.py)
 │   └── samples/               # all 91 test .hcg files, flat, with same-named image folders, + a CP949 zip
 │       ├── README.md          # what each sample is for (read before adding one)
