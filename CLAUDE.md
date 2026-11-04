@@ -67,7 +67,9 @@ cargo test --workspace                 # unit/integration tests
 project/scripts/preflight.sh           # ★ required before every PR. No PR if it fails
 project/scripts/build_web.sh           # builds the static site into dist/ (needs wasm-bindgen-cli)
 python3 -m http.server -d dist 8000    # preview the site locally
-cargo run -p hcg-cli -- input.zip      # run the CLI
+cargo run -p hcg-cli -- input.zip      # run the CLI (writes input_optimized.zip; report on stdout)
+cargo run -p hcg-cli -- project/samples/speedtest.hcg -o /tmp/out.zip   # .hcg input + its folder
+cargo run -p hcg-cli -- input.zip --dry-run   # plan only; --json for the viewer data; --help
 ```
 
 **preflight.sh checks:** CLAUDE.md and AGENTS.md are identical, layer dependency rules (`check_layers.py`), `cargo fmt --check`, `clippy -D warnings`, `cargo test`, wasm32 build, Python reference roundtrip over the samples, and that `reference_summary.json` is up to date (regenerate with `project/scripts/reference_summary.py` after changing samples or the reference).
