@@ -4,13 +4,24 @@
 //! E.g. the default implementation uses the pure-Rust `image` crate; the web frontend may plug in
 //! the browser's Canvas encoder if needed.
 
-/// Basic facts about a decoded image.
+/// Image file formats the use cases tell apart. Detected from the file contents, not the name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ImageFormat {
+    Jpeg,
+    Png,
+    Bmp,
+    Gif,
+    WebP,
+    /// Anything else (TGA, corrupt data, ...).
+    Other,
+}
+
+/// Header-level facts about an image file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ImageInfo {
-    pub width: u32,
-    pub height: u32,
-    /// Whether the alpha channel actually contains values other than 255.
-    pub uses_alpha: bool,
+pub struct ImageProbe {
+    pub format: ImageFormat,
+    /// Width and height, if the codec can read this format's header.
+    pub dimensions: Option<(u32, u32)>,
 }
 
 /// Output image format.
@@ -20,22 +31,30 @@ pub enum OutputFormat {
     Png,
 }
 
-/// Image processing port.
+/// Image processing port. Split into steps so a large photo is decoded and downscaled once and
+/// only the small result is re-encoded while searching for a JPEG quality.
 pub trait ImageCodec {
+    /// Decoded, downscaled pixels. Opaque to the use cases.
+    type Image;
     type Error: std::error::Error + Send + Sync + 'static;
 
-    /// Reads the header/pixels and reports size and alpha usage.
-    fn inspect(&self, bytes: &[u8]) -> Result<ImageInfo, Self::Error>;
+    /// Reads only what is needed to know the format and size.
+    fn probe(&self, bytes: &[u8]) -> Result<ImageProbe, Self::Error>;
 
-    /// Shrinks to fit within `max_w`×`max_h` keeping the aspect ratio (unchanged if already
-    /// smaller) and encodes as `format`.
-    fn resize_encode(
-        &self,
-        bytes: &[u8],
-        max_w: u32,
-        max_h: u32,
-        format: OutputFormat,
-    ) -> Result<Vec<u8>, Self::Error>;
+    /// Decodes and, if larger, downscales to fit within `max_w`×`max_h` keeping the aspect ratio.
+    /// Never upscales. Pixels stay in stored orientation; the orientation tag is kept for
+    /// [`ImageCodec::encode`].
+    fn decode_fit(&self, bytes: &[u8], max_w: u32, max_h: u32) -> Result<Self::Image, Self::Error>;
+
+    fn dimensions(&self, image: &Self::Image) -> (u32, u32);
+
+    /// True if any pixel has alpha < 255.
+    fn uses_alpha(&self, image: &Self::Image) -> bool;
+
+    /// The most common colour among the border pixels and its share (0.0–1.0) of the border.
+    fn dominant_border_color(&self, image: &Self::Image) -> Option<([u8; 3], f32)>;
+
+    fn encode(&self, image: &Self::Image, format: OutputFormat) -> Result<Vec<u8>, Self::Error>;
 }
 
 /// Progress reporting port. The CLI prints to the terminal; the web frontend updates the page.
