@@ -1,0 +1,20 @@
+[package]
+name = "hcg-cli"
+description = "Command-line front end (development and testing)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "hcg-optimizer"
+path = "src/main.rs"
+
+[dependencies]
+hcg-format.workspace = true
+hcg-app.workspace = true
+hcg-adapters.workspace = true
+
+[lints]
+workspace = true
