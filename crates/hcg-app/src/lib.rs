@@ -13,7 +13,10 @@
 //!
 //! This crate depends on no internal crate other than `hcg-format` (checked by preflight).
 
+pub mod analyze;
+pub mod apply;
 pub mod bundle;
 pub mod package;
 pub mod policy;
 pub mod ports;
+pub mod run;
