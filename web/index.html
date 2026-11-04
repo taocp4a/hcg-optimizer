@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HCG Image Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>HCG Image Optimizer</h1>
+    <p>Drop a zip containing an ez-CGER <code>.hcg</code> file and its image folder. You get back a
+       zip with the large images shrunk, plus an inspection report.
+       <strong>Your files never leave this browser.</strong></p>
+    <label class="drop">
+      <input id="file" type="file" accept=".zip" disabled>
+      <span>Choose a zip file (coming soon)</span>
+    </label>
+    <pre id="log"></pre>
+  </main>
+  <footer>core <span id="ver">…</span></footer>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

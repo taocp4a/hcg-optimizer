@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    # domain -> application -> adapters -> frontends (dependencies point inward only)
+    "crates/hcg-format",
+    "crates/hcg-app",
+    "crates/hcg-adapters",
+    "crates/hcg-cli",
+    "crates/hcg-wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+hcg-format = { path = "crates/hcg-format" }
+hcg-app = { path = "crates/hcg-app" }
+hcg-adapters = { path = "crates/hcg-adapters" }
+crc32fast = "1.4"
+wasm-bindgen = "=0.2.100"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
