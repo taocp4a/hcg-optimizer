@@ -16,7 +16,7 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
                 │                               │
                 ▼                               ▼
 ┌─ Adapters ──────────────────────────────────────────────────────────┐
-│  hcg-adapters: zip <-> Bundle (UTF-8/CP949), pure-Rust ImageCodec     │
+│  hcg-adapters: zip <-> file list (UTF-8/CP949), pure-Rust ImageCodec  │
 │  (a web-specific implementation, if needed, lives in hcg-wasm and     │
 │  implements the same trait)                                           │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -37,7 +37,7 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
 |---|---|---|---|
 | `hcg-format` | domain | hcg bytes <-> model, image ID | pure crates only (crc32fast, ...) |
 | `hcg-app` | application | analyze/apply, policy, report, port definitions | hcg-format |
-| `hcg-adapters` | adapters | zip <-> Bundle, ImageCodec implementation | hcg-app, hcg-format, zip/image/encoding_rs |
+| `hcg-adapters` | adapters | zip <-> file list, ImageCodec implementation | hcg-app, hcg-format, zip/image/encoding_rs |
 | `hcg-cli` | frontend | arguments, file I/O, terminal progress | all of the above |
 | `hcg-wasm` | frontend | JS <-> Rust bytes, `JsError` conversion, on-page progress | all of the above + wasm-bindgen |
 
@@ -51,7 +51,7 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
 - **analyze and apply are separate.** First build a plan and report (changing nothing), then apply it. The web "this is what will be shrunk" confirmation, a CLI `--dry-run`, and a possible future GUI preview all share this code.
 - **ImageCodec is a port (trait).** The default implementation uses the pure-Rust `image` crate. Heavy work such as a 6000×4000 photo may be faster with the browser's built-in encoder, so the web frontend can swap in its own implementation.
 - **Progress is a port.** Each frontend shows progress and cancellation its own way while the use-case code stays single.
-- **zip stays outside the use cases.** Use cases only know the in-memory `Bundle` (hcg bytes + list of image files). A different input form (e.g. picking a folder directly) only needs a new adapter.
+- **zip stays outside the use cases.** The adapter only turns a zip into a flat file list and back. Grouping files into bundles (`pair_bundles`) and the output layout (`output_files`) are use-case rules in `hcg-app::package`, testable without zip. A different input form (e.g. picking a folder directly) only needs a new adapter.
 - **hcg-format has no traits.** There is only one format, so it is concrete code. No needless abstraction.
 
 ## Module plan
@@ -69,6 +69,7 @@ hcg-format/src/          # ✅ (issue #3)
 
 hcg-app/src/
 ├── bundle.rs        # ✅ Bundle / BundleFile
+├── package.rs       # ✅ InputFile/OutputFile, pair_bundles, output_files (issue #5)
 ├── ports.rs         # ✅ ImageCodec, Progress, NoProgress
 ├── policy.rs        # 1920×1080, 1 MB, JPEG quality search order, keep PNG when alpha is used
 ├── analyze.rs       # Bundle -> Plan (image matching, missing files, transition and version warnings)
@@ -76,7 +77,7 @@ hcg-app/src/
 └── report.rs        # Plan/result -> report.txt (or html)
 
 hcg-adapters/src/
-├── archive.rs       # zip -> Vec<Bundle>, Bundle -> zip (CP949/UTF-8 names)
+├── archive.rs       # ✅ read_zip / write_zip, UTF-8/CP949 names, zip-bomb limits (issue #5)
 └── image_codec.rs   # ImageCodec implementation (image crate)
 ```
 
@@ -90,10 +91,11 @@ hcg-adapters/src/
 
 ### Processing flow
 
-1. **[adapter]** zip -> `Vec<Bundle>`: pair each `*.hcg` with its same-named folder. Entry names are read as UTF-8 when the UTF-8 flag is set, otherwise as CP949.
+1. **[adapter]** `read_zip`: zip -> flat file list. Entry names are UTF-8 when flagged or valid UTF-8, otherwise CP949. Limits are checked on bytes actually inflated.
+   **[use case]** `pair_bundles`: each `*.hcg` with its same-named folder (case-insensitive, at any depth); clutter such as `__MACOSX/` is dropped, other leftovers are reported.
 2. **[use case: analyze]** Parse the hcg, collect every path-type SafeBMP, and match it to a folder file by `ID + file name`. Record missing files. Use `ImageCodec::inspect` for size and alpha, and build a per-image plan. Also collect non-CUT transitions and version warnings.
 3. **[use case: apply]** Run `ImageCodec::resize_encode` per the plan. If the extension changes, update the SafeBMP path (UTF-16) and length, recompute the ID, and build the new file name; keep the stamp. Write the hcg, re-parse it, and check that **all fields other than paths are equal**.
-4. **[adapter]** `Bundle` + report -> output zip.
+4. **[use case]** `output_files`: `<stem>_optimized/` with `<stem>.hcg`, `<stem>/`, `report.txt` per bundle. **[adapter]** `write_zip`: UTF-8 names, fixed timestamps (deterministic), JPEG/PNG stored, the rest deflated.
 5. **[frontend]** The web page offers a download; the CLI writes a new file. The original is never overwritten.
 
 ## Verification strategy
