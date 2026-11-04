@@ -7,6 +7,8 @@ The tests use **all** `*.hcg` files here:
 - `reference_summary.json`: the Python reference's view of each file (pages, objects, image references). The Rust tests compare against it. Regenerate it with `project/scripts/reference_summary.py` after adding or changing a sample.
 - `crates/hcg-format/tests/samples.rs`: contract tests (roundtrip, truncation, mutation, edits, folder file names).
 
+`cp949_sample_SIMULATED.zip` is the one zip here: a simulated Windows Explorer zip whose single entry name, `찬양배경/주님의 은혜.jpg`, is stored as CP949 bytes without the UTF-8 flag. The zip adapter tests (`crates/hcg-adapters/tests/archive.rs`) read it. Other test zips are built on the fly from the files here.
+
 To add a sample, drop it here (with its image folder, if any), regenerate `reference_summary.json`, and add a row below.
 
 ## Overview

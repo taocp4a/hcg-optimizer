@@ -49,7 +49,7 @@ Format spec: [`project/docs/HCG_FORMAT.md`](project/docs/HCG_FORMAT.md). Check t
 │   ├── docs/                  # requirements, format spec, architecture, dependencies
 │   ├── scripts/               # preflight.sh, check_layers.py, build_web.sh, reference_roundtrip.sh, reference_summary.py
 │   ├── reference/             # Python reference implementation (hcg_parse.py, hcg_write.py)
-│   └── samples/               # all 91 test .hcg files, flat, with same-named image folders
+│   └── samples/               # all 91 test .hcg files, flat, with same-named image folders, + a CP949 zip
 │       ├── README.md          # what each sample is for (read before adding one)
 │       ├── layered/, speedtest/  # large images (12 MB JPGs, 6000×4000 photo, 6 MB PNG); example tool inputs
 │       └── reference_summary.json  # Python reference output; the Rust tests compare against it

@@ -24,14 +24,16 @@ Principle: use **only pure-Rust crates that build for WASM (wasm32-unknown-unkno
 | `crc32fast` 1.4 | hcg-format | Image ID (supports a custom initial value 'HDCG' via `new_with_initial`) |
 | `thiserror` 2 | hcg-format | Error types (`ParseErrorKind`, `EditError`) |
 | `serde_json` 1 | hcg-format (dev only) | Tests read `project/samples/reference_summary.json` |
+| `zip` 9.3 | hcg-adapters | Read/write zip. `default-features = false` + `deflate-flate2` only (no C libraries, no bzip2/zstd/lzma/AES) |
+| `flate2` 1 | hcg-adapters | Selects the pure-Rust `rust_backend` (miniz_oxide) for zip's deflate, so it builds for wasm32 |
+| `encoding_rs` 0.8 | hcg-adapters | Decode CP949 entry names (`EUC_KR` = WHATWG's windows-949) |
+| `crc32fast` 1.4 | hcg-adapters (dev only) | Tests craft zips with chosen raw names and flags |
 | `wasm-bindgen` =0.2.100 | hcg-wasm | JS bindings. Pinned with `=` to match the CLI version |
 
 ## Planned (add when needed and update this table)
 
 | Crate | Used by | Why / notes |
 |---|---|---|
-| `zip` | hcg-adapters | Read/write zip. `default-features = false` with only `deflate`, to stay WASM-compatible |
-| `encoding_rs` | hcg-adapters | Decode CP949 (superset of EUC-KR) entry names |
 | `image` | hcg-adapters | PNG/JPEG decode, resize, encode. `default-features = false`, only the `png` and `jpeg` features |
 | `thiserror` | hcg-app | Error types |
 | `js-sys` / `web-sys` | hcg-wasm | Only if needed, e.g. for progress callbacks |
