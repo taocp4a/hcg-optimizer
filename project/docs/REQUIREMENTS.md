@@ -14,11 +14,20 @@ Shrink large images inside `.hcg` files of the ez-CGER (LUMANTEK) subtitle progr
 - Never overwrite the original.
 
 ## Processing rules
-- Shrink images to fit within 1920×1080 keeping the aspect ratio. Leave images that are already small.
-- Target result size ≤ 1 MB. Images without transparency become JPEG (lower the quality until ≤ 1 MB); PNGs that actually use transparency stay PNG.
+- Shrink images to fit within 1920×1080 keeping the aspect ratio. Leave images that are already within the size and resolution limits.
+- Target result size ≤ 1 MiB by default (user-adjustable). Lossy compression is acceptable: images without transparency become JPEG, starting at quality 90 (user-adjustable) and lowering it until the size limit is met. Only PNGs that actually use transparency stay PNG; preserving alpha is what matters.
+- Keep the EXIF orientation of the source.
 - The 8 leading hex digits of each image-folder file name are an ID. See HCG_FORMAT.md and `image_id()` in reference/hcg_parse.py. If a path or extension changes, the ID must be recomputed.
 - In the hcg, change only image paths and their related length fields; keep every other byte as is.
 - Do not use embedded images (flag 0). The app drops them when it re-saves the file.
+
+## Image formats
+ez-CGER's image-open dialog accepts exactly six formats: PNG, JPG/JPEG, BMP, TGA, DDS, GIF. WebP is not among them (the program mentions "webp" only in its video decoder's format list).
+
+- Recognise formats by their leading signature bytes, not the extension. TGA has no signature, so it is recognised by its extension.
+- **Shrink:** PNG, JPG, BMP (result JPEG; PNG only when transparency is used).
+- **Leave as is, show the size in the report:** GIF (may be animated; the app ships a GIF frame extractor), DDS (GPU texture format), TGA (could be shrunk, but rare).
+- **Other formats (WebP, HEIC, ...):** if the hcg references one, warn that ez-CGER does not support the format; if no hcg references it, ignore it.
 
 ## Inspection report contents
 - Images per page with original size, resolution, and the shrink result
