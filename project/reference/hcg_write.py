@@ -7,6 +7,8 @@ import hcg_parse as H
 def wstr(s): return struct.pack('<i',len(s))+s.encode('utf-16le')
 
 def w_safebmp(B, payload=None):
+    if B['size']<=0:  # empty image (e.g. an embedded image after the app re-saved it): keep the size, no payload
+        return struct.pack('<8sqIQI',b'SafeBMP ',B['size'],0xffffffff if B['is_path'] else 0,B['stamp'],B['reserved'])
     if B['is_path']: payload=B['path'].encode('utf-16le')
     elif payload is None: raise ValueError('embedded payload must be supplied')
     return struct.pack('<8sqIQI',b'SafeBMP ',len(payload),0xffffffff if B['is_path'] else 0,B['stamp'],B['reserved'])+payload
@@ -21,7 +23,7 @@ def w_obj(O, ver):
     struct.pack_into('<6i',sh,4,len(O.get('points',[])),len(O.get('text','')),len(O.get('text2','')),len(O.get('path','')),len(O.get('images',[])),O['sub']['len4'])
     out+=bytes(sh)
     if 'image' in O: out+=w_safebmp(O['image'],O['image'].get('payload'))
-    for B in O.get('images',[]): out+=w_safebmp(B)
+    for B in O.get('images',[]): out+=w_safebmp(B,B.get('payload'))
     out+=struct.pack('<%di'%len(O['tail16']),*O['tail16'])
     for p in O.get('points',[]): out+=struct.pack('<3i',*p)
     for k in ('text','text2'):
