@@ -41,8 +41,8 @@ fn samples() -> Vec<(String, Vec<u8>)> {
         .collect();
     out.sort();
     assert!(
-        out.len() >= 20,
-        "expected at least 20 samples, found {}",
+        out.len() >= 91,
+        "expected at least 91 samples, found {}",
         out.len()
     );
     out
@@ -65,6 +65,27 @@ fn probe_offsets(len: usize, dense: usize, sparse: usize) -> Vec<usize> {
     v
 }
 
+/// Runs `check` on every sample, spread over the available CPU cores (the probe tests parse
+/// each sample thousands of times).
+fn for_each_sample_parallel(check: impl Fn(&str, &[u8]) + Sync) {
+    let all = samples();
+    let workers = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some((name, bytes)) = all.get(i) else {
+                        break;
+                    };
+                    check(name, bytes);
+                }
+            });
+        }
+    });
+}
+
 /// C1: parse -> to_bytes is byte-identical for every sample.
 #[test]
 fn c1_roundtrip_is_byte_identical() {
@@ -78,21 +99,21 @@ fn c1_roundtrip_is_byte_identical() {
 /// C3/C4: every truncated prefix is rejected with an error, never a panic.
 #[test]
 fn c3_truncated_input_is_an_error() {
-    for (name, bytes) in samples() {
+    for_each_sample_parallel(|name, bytes| {
         for cut in probe_offsets(bytes.len(), 4096, 500) {
             assert!(
                 parse(&bytes[..cut]).is_err(),
                 "{name}: prefix of {cut} bytes was accepted"
             );
         }
-    }
+    });
 }
 
 /// C3/C4: corrupted bytes never panic, and any input that still parses roundtrips exactly.
 #[test]
 fn c3_mutated_input_never_panics() {
-    for (name, bytes) in samples() {
-        let mut buf = bytes.clone();
+    for_each_sample_parallel(|name, bytes| {
+        let mut buf = bytes.to_vec();
         // Also cover the object records around every SafeBMP (objects on later pages sit after
         // earlier pages' thumbnails, beyond the dense prefix).
         let mut offsets = probe_offsets(bytes.len(), 1024, 100);
@@ -118,7 +139,7 @@ fn c3_mutated_input_never_panics() {
                 buf[at] = original;
             }
         }
-    }
+    });
 }
 
 #[test]
@@ -379,4 +400,36 @@ fn page_transitions_are_read() {
         }
     );
     assert_eq!((pages[1].width, pages[1].height), (1920, 1080));
+}
+
+/// Embedded images (SafeBMP flag 0) are read and preserved but cannot be edited; an embedded
+/// image re-saved by the app becomes an empty block (size 0).
+#[test]
+fn embedded_and_empty_images() {
+    let files = samples();
+    let get = |suffix: &str| {
+        let (name, bytes) = files
+            .iter()
+            .find(|(n, _)| n.ends_with(suffix))
+            .expect(suffix);
+        parse_ok(name, bytes)
+    };
+    for (suffix, len) in [
+        ("i05_embedded_png.hcg", 2537),
+        ("i06_embedded_jpg.hcg", 11912),
+        ("i07_embedded_bmp.hcg", 720_054),
+    ] {
+        let mut file = get(suffix);
+        let images = file.images();
+        assert_eq!(images.len(), 1, "{suffix}");
+        assert_eq!(images[0].source, ImageSource::Embedded { len }, "{suffix}");
+        assert_eq!(images[0].folder_file_name, None, "{suffix}");
+        assert_eq!(
+            file.set_image_path(images[0].slot, "C:\\x.jpg"),
+            Err(EditError::NotAPath)
+        );
+    }
+    let resaved = get("i05_resaved.hcg").images();
+    assert_eq!(resaved.len(), 1);
+    assert_eq!(resaved[0].source, ImageSource::Empty);
 }
