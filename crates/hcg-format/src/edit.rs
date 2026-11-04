@@ -93,7 +93,7 @@ pub struct PageInfo {
     pub object_count: usize,
 }
 
-impl HcgFile {
+impl HcgFile<'_> {
     /// Number of pages.
     pub fn page_count(&self) -> usize {
         self.pages.len()
@@ -197,7 +197,7 @@ fn collect_layer(out: &mut Vec<ImageRef>, page: Option<usize>, layer: usize, l: 
                     ImageSource::Path(String::from_utf16_lossy(units)),
                     Some(subfolder_file_name_utf16(units, bmp.stamp)),
                 ),
-                Payload::Embedded(bytes) => (ImageSource::Embedded { len: bytes.len() }, None),
+                Payload::Embedded(range) => (ImageSource::Embedded { len: range.len() }, None),
                 Payload::Empty { .. } => (ImageSource::Empty, None),
             };
             out.push(ImageRef {

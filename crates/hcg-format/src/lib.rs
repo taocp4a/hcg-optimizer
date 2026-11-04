@@ -4,7 +4,8 @@
 //! This crate only converts bytes to a model and back.
 //!
 //! Public surface:
-//! - [`parse`] bytes -> [`HcgFile`] (version 0x78 only; never panics)
+//! - [`parse`] (borrows) / [`parse_owned`] (takes the `Vec`) bytes -> [`HcgFile`] (version 0x78
+//!   only; never panics; copies nothing large)
 //! - [`HcgFile::to_bytes`] -> bytes (byte-identical for an unmodified file)
 //! - [`HcgFile::pages`], [`HcgFile::images`] for reading
 //! - [`HcgFile::set_image_path`]: the only mutation
@@ -26,4 +27,4 @@ pub use edit::{
 pub use error::{EditError, ParseError, ParseErrorKind};
 pub use image_id::{image_id, image_id_utf16, subfolder_file_name};
 pub use model::HcgFile;
-pub use parse::{SUPPORTED_VERSION, parse};
+pub use parse::{SUPPORTED_VERSION, parse, parse_owned};
