@@ -10,6 +10,8 @@ publish.workspace = true
 [dependencies]
 hcg-format.workspace = true
 thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

@@ -215,3 +215,37 @@ fn all_samples_in_one_run() {
         std::fs::read(samples_dir().join("v00_empty.hcg")).expect("read")
     );
 }
+
+/// report.json from a real run: status, counts, the rename, and the over-limit warning.
+#[test]
+fn speedtest_report_json() {
+    let policy = ResizePolicy::default();
+    let result = process(sample_inputs(Some(&["speedtest"])));
+    let out = result.package(&policy);
+    let report = out
+        .iter()
+        .find(|f| f.path == "speedtest_optimized/report.json")
+        .expect("report");
+    let json: serde_json::Value = serde_json::from_slice(&report.bytes).expect("valid JSON");
+    assert_eq!(json["status"], "ok");
+    assert_eq!(json["summary"]["images_total"], 3);
+    assert_eq!(json["summary"]["images_shrunk"], 2);
+    assert_eq!(json["summary"]["images_renamed"], 1);
+    let codes: Vec<&str> = json["warnings"]
+        .as_array()
+        .expect("warnings")
+        .iter()
+        .filter_map(|w| w["code"].as_str())
+        .collect();
+    assert_eq!(
+        codes,
+        ["over_size_limit"],
+        "the noise image stays over 1 MB"
+    );
+    let text = json["text"].as_str().expect("text");
+    assert!(
+        text.contains("renamed to") && text.contains("C:\\test\\bg_1080_noise.jpg"),
+        "{text}"
+    );
+    eprintln!("{text}");
+}

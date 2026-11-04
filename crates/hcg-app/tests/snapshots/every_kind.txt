@@ -1,0 +1,44 @@
+hcg-optimizer report: speedtest.hcg
+===================================
+2 of 5 images shrunk: 27.8 MB -> 318.3 KB. 4 warnings.
+Format version 0x78, 5 page(s), 4 image reference(s).
+
+Images
+  D727E722bg_6000x4000_photo.jpg
+    6000x4000 JPEG 21.9 MB -> 1620x1080 JPEG q55 94.0 KB
+    used on background, object 1; page 5, object 1
+  D4E3A7EAbg_1080_small.jpg
+    1920x1080 JPEG 65.4 KB, kept (already within limits)
+    used on page 3, object 1
+  2D00575Abg_1080_noise.png
+    1920x1080 PNG 5.7 MB -> 1920x1080 JPEG q50 101.3 KB
+    renamed to 3F8B560Bbg_1080_noise.jpg (path C:\test\bg_1080_noise.jpg)
+    used on page 4, object 1
+  28BD2D7Emark_1.png
+    800x600 WEBP 48.8 KB, kept (format not supported by ez-CGER)
+    used on page 1, object 1
+  74EB6CEBmark_2.png
+    320x240 GIF 8.8 KB, kept (format left as is)
+    used on page 1, object 2
+
+Missing from the image folder
+  C:\test\mark_1.png (used on page 1, object 1)
+
+Embedded images (left as is)
+  embedded image, 2.5 KB (used on page 1, object 1)
+  empty image block (used on page 1, object 1)
+
+Page transitions other than CUT
+  page 2: left-to-right, 2.0 s
+
+Other files
+  1 file(s) in the image folder are not used by the hcg (copied unchanged).
+  readme.txt: in the zip but not part of any hcg (not included).
+
+Warnings
+  ! 3F8B560Bbg_1080_noise.jpg is still 101.3 KB (limit 97.7 KB) even at the lowest JPEG quality.
+  ! 28BD2D7Emark_1.png is a WebP image, which ez-CGER does not support.
+  ! C:\test\mark_1.png (page 1, object 1) is not in the image folder. ez-CGER can still show it only on a PC where that path exists.
+  ! Page 2 uses a left-to-right transition (2.0 s). On a slow PC transitions take longer than set; CUT avoids the delay.
+
+Limits: 1920x1080, 97.7 KB, JPEG quality 90 down to 50.

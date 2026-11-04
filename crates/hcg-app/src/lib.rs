@@ -19,4 +19,5 @@ pub mod bundle;
 pub mod package;
 pub mod policy;
 pub mod ports;
+pub mod report;
 pub mod run;

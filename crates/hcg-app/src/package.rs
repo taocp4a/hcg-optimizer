@@ -118,8 +118,8 @@ pub struct PackagedBundle<'a> {
 }
 
 /// Lays out the output package. Each bundle goes into its own `<stem>_optimized/` folder with
-/// `<stem>.hcg`, the image folder `<stem>/` (if it has images), and `report.txt`; a bundle that
-/// could not be processed gets only `report.txt`. Extracting the result next to the original
+/// `<stem>.hcg`, the image folder `<stem>/` (if it has images), and `report.json`; a bundle that
+/// could not be processed gets only `report.json`. Extracting the result next to the original
 /// therefore never overwrites it. Folder names are made unique if two bundles share a stem.
 pub fn output_files(results: &[PackagedBundle<'_>]) -> Vec<OutputFile> {
     let mut used: Vec<String> = Vec::new();
@@ -147,7 +147,7 @@ pub fn output_files(results: &[PackagedBundle<'_>]) -> Vec<OutputFile> {
             }
         }
         out.push(OutputFile {
-            path: format!("{root}/report.txt"),
+            path: format!("{root}/report.json"),
             bytes: result.report.as_bytes().to_vec(),
         });
     }
@@ -322,10 +322,10 @@ mod tests {
             [
                 "a_optimized/a.hcg",
                 "a_optimized/a/1.jpg",
-                "a_optimized/report.txt",
+                "a_optimized/report.json",
                 "A_optimized_2/A.hcg",
-                "A_optimized_2/report.txt",
-                "broken_optimized/report.txt",
+                "A_optimized_2/report.json",
+                "broken_optimized/report.json",
             ]
         );
         assert_eq!(out[2].bytes, b"report a");

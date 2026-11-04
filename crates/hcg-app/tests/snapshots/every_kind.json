@@ -1,0 +1,256 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "hcg-optimizer",
+    "version": "0.1.0"
+  },
+  "bundle": {
+    "stem": "speedtest",
+    "hcg_path": "speedtest.hcg",
+    "folder_path": "speedtest"
+  },
+  "status": "ok",
+  "summary": {
+    "headline": "2 of 5 images shrunk: 27.8 MB -> 318.3 KB. 4 warnings.",
+    "images_total": 5,
+    "images_shrunk": 2,
+    "images_renamed": 1,
+    "bytes_before": 29126000,
+    "bytes_after": 325908,
+    "warnings": 4
+  },
+  "failure": null,
+  "hcg": {
+    "version": 120,
+    "pages": 5,
+    "image_refs": 4
+  },
+  "policy": {
+    "max_width": 1920,
+    "max_height": 1080,
+    "max_bytes": 100000,
+    "jpeg_quality": 90,
+    "min_jpeg_quality": 50
+  },
+  "images": [
+    {
+      "file": "D727E722bg_6000x4000_photo.jpg",
+      "path": "C:\\test\\bg_6000x4000_photo.jpg",
+      "used_on": [
+        {
+          "page": null,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        },
+        {
+          "page": 5,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "jpeg",
+        "width": 6000,
+        "height": 4000,
+        "bytes": 23000000,
+        "quality": null
+      },
+      "action": "shrunk",
+      "reason": null,
+      "after": {
+        "format": "jpeg",
+        "width": 1620,
+        "height": 1080,
+        "bytes": 96228,
+        "quality": 55
+      },
+      "renamed_to": null
+    },
+    {
+      "file": "D4E3A7EAbg_1080_small.jpg",
+      "path": "C:\\test\\bg_1080_small.jpg",
+      "used_on": [
+        {
+          "page": 3,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "jpeg",
+        "width": 1920,
+        "height": 1080,
+        "bytes": 67000,
+        "quality": null
+      },
+      "action": "kept",
+      "reason": "within_limits",
+      "after": null,
+      "renamed_to": null
+    },
+    {
+      "file": "2D00575Abg_1080_noise.png",
+      "path": "C:\\test\\bg_1080_noise.png",
+      "used_on": [
+        {
+          "page": 4,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "bytes": 6000000,
+        "quality": null
+      },
+      "action": "shrunk",
+      "reason": null,
+      "after": {
+        "format": "jpeg",
+        "width": 1920,
+        "height": 1080,
+        "bytes": 103680,
+        "quality": 50
+      },
+      "renamed_to": {
+        "file": "3F8B560Bbg_1080_noise.jpg",
+        "path": "C:\\test\\bg_1080_noise.jpg"
+      }
+    },
+    {
+      "file": "28BD2D7Emark_1.png",
+      "path": "C:\\test\\mark_1.png",
+      "used_on": [
+        {
+          "page": 1,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "webp",
+        "width": 800,
+        "height": 600,
+        "bytes": 50000,
+        "quality": null
+      },
+      "action": "kept",
+      "reason": "not_supported_by_app",
+      "after": null,
+      "renamed_to": null
+    },
+    {
+      "file": "74EB6CEBmark_2.png",
+      "path": "C:\\test\\mark_2.png",
+      "used_on": [
+        {
+          "page": 1,
+          "layer": 1,
+          "object": 2,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "gif",
+        "width": 320,
+        "height": 240,
+        "bytes": 9000,
+        "quality": null
+      },
+      "action": "kept",
+      "reason": "not_resized",
+      "after": null,
+      "renamed_to": null
+    }
+  ],
+  "missing": [
+    {
+      "path": "C:\\test\\mark_1.png",
+      "expected_file": "28BD2D7Emark_1.png",
+      "used_on": [
+        {
+          "page": 1,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ]
+    }
+  ],
+  "embedded": [
+    {
+      "kind": "embedded",
+      "bytes": 2537,
+      "used_on": {
+        "page": 1,
+        "layer": 1,
+        "object": 1,
+        "role": "primary",
+        "frame": null
+      }
+    },
+    {
+      "kind": "empty",
+      "bytes": 0,
+      "used_on": {
+        "page": 1,
+        "layer": 1,
+        "object": 1,
+        "role": "primary",
+        "frame": null
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "page": 2,
+      "kind": "left_to_right",
+      "type_value": 2,
+      "duration_ms": 2000
+    }
+  ],
+  "unreferenced_files": 1,
+  "other_files": {
+    "unpaired": [
+      "readme.txt"
+    ],
+    "ignored": 2
+  },
+  "warnings": [
+    {
+      "code": "over_size_limit",
+      "message": "3F8B560Bbg_1080_noise.jpg is still 101.3 KB (limit 97.7 KB) even at the lowest JPEG quality.",
+      "file": "3F8B560Bbg_1080_noise.jpg"
+    },
+    {
+      "code": "not_supported_by_app",
+      "message": "28BD2D7Emark_1.png is a WebP image, which ez-CGER does not support.",
+      "file": "28BD2D7Emark_1.png"
+    },
+    {
+      "code": "missing_image",
+      "message": "C:\\test\\mark_1.png (page 1, object 1) is not in the image folder. ez-CGER can still show it only on a PC where that path exists.",
+      "file": "28BD2D7Emark_1.png"
+    },
+    {
+      "code": "transition_not_cut",
+      "message": "Page 2 uses a left-to-right transition (2.0 s). On a slow PC transitions take longer than set; CUT avoids the delay.",
+      "file": null
+    }
+  ],
+  "text": "hcg-optimizer report: speedtest.hcg\n===================================\n2 of 5 images shrunk: 27.8 MB -> 318.3 KB. 4 warnings.\nFormat version 0x78, 5 page(s), 4 image reference(s).\n\nImages\n  D727E722bg_6000x4000_photo.jpg\n    6000x4000 JPEG 21.9 MB -> 1620x1080 JPEG q55 94.0 KB\n    used on background, object 1; page 5, object 1\n  D4E3A7EAbg_1080_small.jpg\n    1920x1080 JPEG 65.4 KB, kept (already within limits)\n    used on page 3, object 1\n  2D00575Abg_1080_noise.png\n    1920x1080 PNG 5.7 MB -> 1920x1080 JPEG q50 101.3 KB\n    renamed to 3F8B560Bbg_1080_noise.jpg (path C:\\test\\bg_1080_noise.jpg)\n    used on page 4, object 1\n  28BD2D7Emark_1.png\n    800x600 WEBP 48.8 KB, kept (format not supported by ez-CGER)\n    used on page 1, object 1\n  74EB6CEBmark_2.png\n    320x240 GIF 8.8 KB, kept (format left as is)\n    used on page 1, object 2\n\nMissing from the image folder\n  C:\\test\\mark_1.png (used on page 1, object 1)\n\nEmbedded images (left as is)\n  embedded image, 2.5 KB (used on page 1, object 1)\n  empty image block (used on page 1, object 1)\n\nPage transitions other than CUT\n  page 2: left-to-right, 2.0 s\n\nOther files\n  1 file(s) in the image folder are not used by the hcg (copied unchanged).\n  readme.txt: in the zip but not part of any hcg (not included).\n\nWarnings\n  ! 3F8B560Bbg_1080_noise.jpg is still 101.3 KB (limit 97.7 KB) even at the lowest JPEG quality.\n  ! 28BD2D7Emark_1.png is a WebP image, which ez-CGER does not support.\n  ! C:\\test\\mark_1.png (page 1, object 1) is not in the image folder. ez-CGER can still show it only on a PC where that path exists.\n  ! Page 2 uses a left-to-right transition (2.0 s). On a slow PC transitions take longer than set; CUT avoids the delay.\n\nLimits: 1920x1080, 97.7 KB, JPEG quality 90 down to 50.\n"
+}
