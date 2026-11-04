@@ -1,7 +1,7 @@
-//! [`ImageCodec`] implemented with the pure-Rust `image` crate (JPEG, PNG, BMP). Builds for
-//! native and wasm32.
+//! [`ImageCodec`] implemented with the pure-Rust `image` crate. Decodes and encodes JPEG, PNG
+//! and BMP; recognises GIF, DDS, TGA, WebP and HEIC and reads the size of GIF, DDS and TGA from
+//! their headers (for the report). Builds for native and wasm32.
 
-use std::collections::HashMap;
 use std::io::Cursor;
 
 use hcg_app::policy::fit_within;
@@ -43,19 +43,67 @@ impl Default for PureRustCodec {
     }
 }
 
-fn detect(bytes: &[u8]) -> ImageFormat {
+/// Format from the leading signature bytes; TGA (no signature) from the file extension.
+fn detect(bytes: &[u8], file_name: &str) -> ImageFormat {
+    let at = |range: std::ops::Range<usize>| bytes.get(range).unwrap_or_default();
     if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
         return ImageFormat::Gif;
     }
-    if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+    if bytes.starts_with(b"DDS ") {
+        return ImageFormat::Dds;
+    }
+    if bytes.starts_with(b"RIFF") && at(8..12) == b"WEBP" {
         return ImageFormat::WebP;
     }
-    match image::guess_format(bytes) {
-        Ok(image::ImageFormat::Jpeg) => ImageFormat::Jpeg,
-        Ok(image::ImageFormat::Png) => ImageFormat::Png,
-        Ok(image::ImageFormat::Bmp) => ImageFormat::Bmp,
-        _ => ImageFormat::Other,
+    const HEIF_BRANDS: [&[u8]; 9] = [
+        b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"hevm", b"mif1", b"msf1",
+    ];
+    if at(4..8) == b"ftyp" && HEIF_BRANDS.contains(&at(8..12)) {
+        return ImageFormat::Heic;
     }
+    match image::guess_format(bytes) {
+        Ok(image::ImageFormat::Jpeg) => return ImageFormat::Jpeg,
+        Ok(image::ImageFormat::Png) => return ImageFormat::Png,
+        Ok(image::ImageFormat::Bmp) => return ImageFormat::Bmp,
+        _ => {}
+    }
+    let is_tga = file_name
+        .rsplit_once('.')
+        .is_some_and(|(_, ext)| ext.eq_ignore_ascii_case("tga"));
+    if is_tga {
+        ImageFormat::Tga
+    } else {
+        ImageFormat::Other
+    }
+}
+
+/// Width and height from the headers of formats this codec does not decode.
+fn header_dimensions(format: ImageFormat, bytes: &[u8]) -> Option<(u32, u32)> {
+    let u16_at = |o: usize| {
+        bytes
+            .get(o..o + 2)
+            .map(|b| u32::from(u16::from_le_bytes([b[0], b[1]])))
+    };
+    let u32_at = |o: usize| {
+        bytes
+            .get(o..o + 4)
+            .map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+    };
+    match format {
+        // Logical screen size.
+        ImageFormat::Gif => Some((u16_at(6)?, u16_at(8)?)),
+        // DDS_HEADER: dwHeight at +12, dwWidth at +16 (after the 4-byte magic).
+        ImageFormat::Dds => Some((u32_at(16)?, u32_at(12)?)),
+        // 18-byte TGA header: image type at 2, width at 12, height at 14.
+        ImageFormat::Tga => {
+            let image_type = *bytes.get(2)?;
+            [1, 2, 3, 9, 10, 11]
+                .contains(&image_type)
+                .then_some((u16_at(12)?, u16_at(14)?))
+        }
+        _ => None,
+    }
+    .filter(|&(w, h)| w > 0 && h > 0)
 }
 
 fn crate_format(format: ImageFormat) -> Option<image::ImageFormat> {
@@ -87,11 +135,11 @@ impl ImageCodec for PureRustCodec {
     type Image = CodecImage;
     type Error = ImageCodecError;
 
-    fn probe(&self, bytes: &[u8]) -> Result<ImageProbe, ImageCodecError> {
-        let format = detect(bytes);
+    fn probe(&self, bytes: &[u8], file_name: &str) -> Result<ImageProbe, ImageCodecError> {
+        let format = detect(bytes, file_name);
         let dimensions = match crate_format(format) {
             Some(f) => Some(ImageReader::with_format(Cursor::new(bytes), f).into_dimensions()?),
-            None => None,
+            None => header_dimensions(format, bytes),
         };
         Ok(ImageProbe { format, dimensions })
     }
@@ -102,7 +150,7 @@ impl ImageCodec for PureRustCodec {
         max_w: u32,
         max_h: u32,
     ) -> Result<CodecImage, ImageCodecError> {
-        let format = crate_format(detect(bytes)).ok_or(ImageCodecError::Unsupported)?;
+        let format = crate_format(detect(bytes, "")).ok_or(ImageCodecError::Unsupported)?;
         let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
         let mut limits = Limits::default();
         limits.max_alloc = Some(self.max_alloc);
@@ -139,38 +187,6 @@ impl ImageCodec for PureRustCodec {
             }
             _ => false,
         }
-    }
-
-    fn dominant_border_color(&self, image: &CodecImage) -> Option<([u8; 3], f32)> {
-        let img = &image.pixels;
-        let (w, h) = img.dimensions();
-        if w == 0 || h == 0 {
-            return None;
-        }
-        let mut counts: HashMap<[u8; 3], u32> = HashMap::new();
-        let mut total = 0u32;
-        let mut add = |x: u32, y: u32| {
-            let p = img.get_pixel(x, y).0;
-            *counts.entry([p[0], p[1], p[2]]).or_default() += 1;
-            total += 1;
-        };
-        for x in 0..w {
-            add(x, 0);
-            if h > 1 {
-                add(x, h - 1);
-            }
-        }
-        for y in 1..h.saturating_sub(1) {
-            add(0, y);
-            if w > 1 {
-                add(w - 1, y);
-            }
-        }
-        // Ties broken by colour value so the result is deterministic.
-        let (rgb, n) = counts
-            .into_iter()
-            .max_by_key(|&(rgb, n)| (n, std::cmp::Reverse(rgb)))?;
-        Some((rgb, n as f32 / total as f32))
     }
 
     fn encode(&self, image: &CodecImage, format: OutputFormat) -> Result<Vec<u8>, ImageCodecError> {
