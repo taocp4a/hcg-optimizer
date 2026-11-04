@@ -26,6 +26,8 @@ pub enum ImageCodecError {
     Image(#[from] image::ImageError),
     #[error("{0}")]
     Io(#[from] std::io::Error),
+    #[error("JPEG: {0}")]
+    Jpeg(String),
     #[error("format not supported by this codec")]
     Unsupported,
 }
@@ -131,6 +133,71 @@ fn orientation_exif(orientation: u8) -> Vec<u8> {
     tiff
 }
 
+impl PureRustCodec {
+    /// Decodes a JPEG directly at a reduced size (DCT scaling: 1/2, 1/4 or 1/8, never below the
+    /// fitted size), then fits it with Lanczos3. A 6000x4000 photo is decoded at 3000x2000, so the
+    /// full-size pixel buffer never exists (issue #13). Returns `None` for pixel formats it does
+    /// not handle (CMYK, 16-bit), which then take the general path.
+    fn decode_jpeg_scaled(
+        &self,
+        bytes: &[u8],
+        max_w: u32,
+        max_h: u32,
+    ) -> Result<Option<CodecImage>, ImageCodecError> {
+        let jpeg_error = |e: jpeg_decoder::Error| ImageCodecError::Jpeg(e.to_string());
+        let mut decoder = jpeg_decoder::Decoder::new(bytes);
+        decoder.set_max_decoding_buffer_size(usize::try_from(self.max_alloc).unwrap_or(usize::MAX));
+        decoder.read_info().map_err(jpeg_error)?;
+        let Some(info) = decoder.info() else {
+            return Ok(None);
+        };
+        if !matches!(
+            info.pixel_format,
+            jpeg_decoder::PixelFormat::RGB24 | jpeg_decoder::PixelFormat::L8
+        ) {
+            return Ok(None);
+        }
+        let (w, h) = (u32::from(info.width), u32::from(info.height));
+        let (tw, th) = fit_within(w, h, max_w, max_h);
+        if (tw, th) != (w, h) {
+            // Both fit in u16 because they are at most the original JPEG size.
+            decoder
+                .scale(
+                    u16::try_from(tw).unwrap_or(u16::MAX),
+                    u16::try_from(th).unwrap_or(u16::MAX),
+                )
+                .map_err(jpeg_error)?;
+        }
+        let data = decoder.decode().map_err(jpeg_error)?;
+        let Some(info) = decoder.info() else {
+            return Ok(None);
+        };
+        let (dw, dh) = (u32::from(info.width), u32::from(info.height));
+        let orientation = decoder
+            .exif_data()
+            .and_then(image::metadata::Orientation::from_exif_chunk)
+            .map_or(1, |o| o.to_exif());
+        let pixels = match info.pixel_format {
+            jpeg_decoder::PixelFormat::RGB24 => {
+                image::RgbImage::from_raw(dw, dh, data).map(DynamicImage::ImageRgb8)
+            }
+            _ => image::GrayImage::from_raw(dw, dh, data).map(DynamicImage::ImageLuma8),
+        };
+        let Some(pixels) = pixels else {
+            return Ok(None);
+        };
+        let pixels = if (dw, dh) == (tw, th) {
+            pixels
+        } else {
+            pixels.resize_exact(tw, th, FilterType::Lanczos3)
+        };
+        Ok(Some(CodecImage {
+            pixels,
+            orientation,
+        }))
+    }
+}
+
 impl ImageCodec for PureRustCodec {
     type Image = CodecImage;
     type Error = ImageCodecError;
@@ -151,6 +218,11 @@ impl ImageCodec for PureRustCodec {
         max_h: u32,
     ) -> Result<CodecImage, ImageCodecError> {
         let format = crate_format(detect(bytes, "")).ok_or(ImageCodecError::Unsupported)?;
+        if format == image::ImageFormat::Jpeg
+            && let Some(image) = self.decode_jpeg_scaled(bytes, max_w, max_h)?
+        {
+            return Ok(image);
+        }
         let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
         let mut limits = Limits::default();
         limits.max_alloc = Some(self.max_alloc);
