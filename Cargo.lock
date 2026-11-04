@@ -273,6 +273,9 @@ dependencies = [
  "hcg-adapters",
  "hcg-app",
  "hcg-format",
+ "js-sys",
+ "serde",
+ "serde_json",
  "wasm-bindgen",
 ]
 
