@@ -10,7 +10,7 @@ Shrink large images inside `.hcg` files of the ez-CGER (LUMANTEK) subtitle progr
 ## Input and output
 - Input: one zip containing an hcg file and an image folder with the same name as the hcg (e.g. `layered.hcg` + `layered/`).
 - Entry names inside the zip may be UTF-8 or CP949 (the Windows default for compressed folders); both must be read.
-- Output: one zip with the fixed hcg, the shrunk image folder, and an inspection report (report.txt or html).
+- Output: one zip with the fixed hcg, the shrunk image folder, and an inspection report (`report.json`: structured data plus a plain-text rendering; a viewer renders it).
 - Never overwrite the original.
 
 ## Processing rules

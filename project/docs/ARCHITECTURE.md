@@ -74,7 +74,7 @@ hcg-app/src/
 ├── policy.rs        # ✅ ResizePolicy, optimize_image, fit_within, output_file_name (issue #7)
 ├── analyze.rs       # ✅ Bundle -> BundlePlan from headers only (no decoding): files, missing, embedded, transitions (issue #9)
 ├── apply.rs         # ✅ shrink planned files, rewrite paths/IDs on extension change, re-parse verification (issue #9)
-├── report.rs        # Plan/result -> report.txt (next item)
+├── report.rs        # ✅ BundleResult -> Report -> report.json (headline + plain-text rendering inside) (issue #11)
 └── run.rs           # ✅ plan_run (preview) / execute / run: the only calls frontends make (issue #9)
 
 hcg-adapters/src/
@@ -96,7 +96,7 @@ hcg-adapters/src/
    **[use case]** `pair_bundles`: each `*.hcg` with its same-named folder (case-insensitive, at any depth); clutter such as `__MACOSX/` is dropped, other leftovers are reported.
 2. **[use case: analyze]** Parse the hcg, collect every path-type SafeBMP, and match it to a folder file by `ID + file name`. Record missing files. Run `optimize_image` per folder file (policy: shrink PNG/JPG/BMP to fit 1920×1080 and ≤ 1 MiB by default, PNG if alpha is used, else JPEG from quality 90 down; GIF/DDS/TGA kept with their size; WebP/HEIC/other flagged as unsupported by ez-CGER if referenced). Also collect non-CUT transitions and version warnings.
 3. **[use case: apply]** Write each `Converted` result. If `output_file_name` reports an extension change, update the SafeBMP path (UTF-16) and length, recompute the ID, and build the new file name; keep the stamp. Write the hcg, re-parse it, and check that **all fields other than paths are equal**.
-4. **[use case]** `output_files`: `<stem>_optimized/` with `<stem>.hcg`, `<stem>/`, `report.txt` per bundle. **[adapter]** `write_zip`: UTF-8 names, fixed timestamps (deterministic), JPEG/PNG stored, the rest deflated.
+4. **[use case]** `output_files`: `<stem>_optimized/` with `<stem>.hcg`, `<stem>/`, `report.json` per bundle (see REPORT_FORMAT.md). **[adapter]** `write_zip`: UTF-8 names, fixed timestamps (deterministic), JPEG/PNG stored, the rest deflated.
 5. **[frontend]** The web page offers a download; the CLI writes a new file. The original is never overwritten.
 
 ## Verification strategy
