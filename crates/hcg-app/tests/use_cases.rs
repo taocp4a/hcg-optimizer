@@ -86,7 +86,7 @@ fn apply_rewrites_paths_on_extension_change() {
     );
     let policy = ResizePolicy::default();
     let plan = analyze(&codec, &b, &policy);
-    let result = apply(&codec, &b, plan, &policy, &mut NoProgress).expect("not cancelled");
+    let result = apply(&codec, b.clone(), plan, &policy, &mut NoProgress).expect("not cancelled");
     assert_eq!(result.failure, None);
     let out = result.output.expect("output");
     assert_eq!(
@@ -167,7 +167,7 @@ fn shared_file_is_renamed_once_for_all_references() {
     let policy = ResizePolicy::default();
     let result = apply(
         &codec,
-        &b,
+        b.clone(),
         analyze(&codec, &b, &policy),
         &policy,
         &mut NoProgress,
@@ -202,7 +202,7 @@ fn name_collision_gets_a_suffix() {
     let policy = ResizePolicy::default();
     let result = apply(
         &codec,
-        &b,
+        b.clone(),
         analyze(&codec, &b, &policy),
         &policy,
         &mut NoProgress,
@@ -239,7 +239,7 @@ fn alpha_png_and_gif_keep_their_names() {
     let policy = ResizePolicy::default();
     let result = apply(
         &codec,
-        &b,
+        b.clone(),
         analyze(&codec, &b, &policy),
         &policy,
         &mut NoProgress,
@@ -359,7 +359,7 @@ fn cancellation_stops_between_images() {
     assert_eq!(
         apply(
             &codec,
-            &b,
+            b.clone(),
             analyze(&codec, &b, &policy),
             &policy,
             &mut progress

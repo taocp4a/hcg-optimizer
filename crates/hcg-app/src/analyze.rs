@@ -86,7 +86,7 @@ pub fn analyze<C: ImageCodec>(codec: &C, bundle: &Bundle, policy: &ResizePolicy)
 pub(crate) fn analyze_parsed<C: ImageCodec>(
     codec: &C,
     bundle: &Bundle,
-    file: &HcgFile,
+    file: &HcgFile<'_>,
     policy: &ResizePolicy,
 ) -> BundlePlan {
     // Folder lookup is case-insensitive, like Windows.

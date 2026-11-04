@@ -101,7 +101,7 @@ fn every_kind() -> (BundleResult, RunNotes) {
     plan.transitions.extend(others("p2_L2R_2s.hcg").transitions);
     plan.unreferenced.push("0000ABCDextra.png".into());
 
-    let result = apply(&codec, &speedtest, plan, &policy, &mut NoProgress).expect("not cancelled");
+    let result = apply(&codec, speedtest, plan, &policy, &mut NoProgress).expect("not cancelled");
     let notes = RunNotes {
         unpaired: vec!["readme.txt".into()],
         ignored: 2,
@@ -161,7 +161,7 @@ fn failed_bundle_report() {
     let policy = ResizePolicy::default();
     let result = apply(
         &codec,
-        &broken,
+        broken.clone(),
         analyze(&codec, &broken, &policy),
         &policy,
         &mut NoProgress,

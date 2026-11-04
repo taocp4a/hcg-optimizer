@@ -1,6 +1,7 @@
 //! zip <-> flat file list ([`InputFile`] / [`OutputFile`]). Everything stays in memory; nothing
 //! is ever extracted to disk, so zip-slip cannot happen.
 
+use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::io::{Cursor, Read, Write};
 
@@ -98,7 +99,9 @@ pub fn read_zip(bytes: &[u8], limits: &ZipLimits) -> Result<Vec<InputFile>, Arch
 
         // Read at most one byte past the remaining budget, whatever the entry claims.
         let budget = limits.max_total_bytes - total;
-        let mut data = Vec::new();
+        // Pre-size from the declared size (capped by the budget) so large entries do not grow
+        // by doubling; the budget is still enforced on bytes actually read.
+        let mut data = Vec::with_capacity(usize::try_from(entry.size().min(budget)).unwrap_or(0));
         (&mut entry)
             .take(budget.saturating_add(1))
             .read_to_end(&mut data)
@@ -120,10 +123,14 @@ pub fn read_zip(bytes: &[u8], limits: &ZipLimits) -> Result<Vec<InputFile>, Arch
 
 /// Writes files into a new zip. Names are UTF-8 (flagged when non-ASCII). Timestamps are fixed
 /// (1980-01-01), so the same input always gives the same bytes. JPEG/PNG are stored as is
-/// (already compressed); everything else is deflated.
-pub fn write_zip(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
+/// (already compressed); everything else is deflated. Pass the files by value to free each one
+/// as soon as it is written (issue #13).
+pub fn write_zip<F: Borrow<OutputFile>>(
+    files: impl IntoIterator<Item = F>,
+) -> Result<Vec<u8>, ArchiveError> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     for file in files {
+        let file = file.borrow();
         let method = if is_precompressed(&file.path) {
             CompressionMethod::Stored
         } else {
@@ -138,6 +145,7 @@ pub fn write_zip(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
         writer
             .write_all(&file.bytes)
             .map_err(|e| ArchiveError::Invalid(format!("{}: {e}", file.path)))?;
+        // An owned file is dropped here, so its memory is freed as soon as it is written.
     }
     Ok(writer.finish()?.into_inner())
 }

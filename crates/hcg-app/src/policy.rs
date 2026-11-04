@@ -144,7 +144,10 @@ pub fn plan_image(probe: &ImageProbe, byte_len: u64, policy: &ResizePolicy) -> P
 /// A converted image.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Converted {
+    /// The encoded image. apply moves these bytes into the output folder, leaving this empty;
+    /// `byte_len` keeps the size.
     pub bytes: Vec<u8>,
+    pub byte_len: u64,
     pub format: OutputFormat,
     pub width: u32,
     pub height: u32,
@@ -255,6 +258,7 @@ pub fn optimize_image<C: ImageCodec>(
     ImageOutcome {
         probe: Some(probe),
         action: ImageAction::Converted(Converted {
+            byte_len: out.len() as u64,
             bytes: out,
             format,
             width: out_w,

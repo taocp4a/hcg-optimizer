@@ -80,7 +80,7 @@ fn as_inputs(out: &[OutputFile]) -> Vec<InputFile> {
 #[test]
 fn layered_and_speedtest_end_to_end_and_idempotent() {
     let zip = write_zip(
-        &sample_inputs(Some(&["layered", "speedtest"]))
+        sample_inputs(Some(&["layered", "speedtest"]))
             .into_iter()
             .map(|f| OutputFile {
                 path: f.path,
