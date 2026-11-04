@@ -29,6 +29,7 @@ Principle: use **only pure-Rust crates that build for WASM (wasm32-unknown-unkno
 | `flate2` 1 | hcg-adapters | Selects the pure-Rust `rust_backend` (miniz_oxide) for zip's deflate, so it builds for wasm32 |
 | `encoding_rs` 0.8 | hcg-adapters | Decode CP949 entry names (`EUC_KR` = WHATWG's windows-949) |
 | `image` 0.25 | hcg-adapters | JPEG/PNG/BMP decode, Lanczos3 resize, JPEG/PNG encode, EXIF orientation. `default-features = false` + `jpeg`, `png`, `bmp` only (pure Rust: zune-jpeg, png) |
+| `jpeg-decoder` 0.3 | hcg-adapters | Scaled JPEG decoding (DCT 1/2, 1/4, 1/8) so large photos are never decoded at full size (issue #13). `default-features = false` (no rayon) |
 | `crc32fast` 1.4 | hcg-adapters (dev only) | Tests craft zips with chosen raw names and flags |
 | `wasm-bindgen` =0.2.100 | hcg-wasm | JS bindings. Pinned with `=` to match the CLI version |
 
