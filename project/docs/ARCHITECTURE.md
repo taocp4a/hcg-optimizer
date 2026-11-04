@@ -72,9 +72,10 @@ hcg-app/src/
 ├── package.rs       # ✅ InputFile/OutputFile, pair_bundles, output_files (issue #5)
 ├── ports.rs         # ✅ ImageCodec (probe/decode_fit/encode), Progress, NoProgress
 ├── policy.rs        # ✅ ResizePolicy, optimize_image, fit_within, output_file_name (issue #7)
-├── analyze.rs       # Bundle -> Plan (image matching, missing files, transition and version warnings)
-├── apply.rs         # execute the Plan: convert images, update paths/IDs, rewrite hcg, re-parse check
-└── report.rs        # Plan/result -> report.txt (or html)
+├── analyze.rs       # ✅ Bundle -> BundlePlan from headers only (no decoding): files, missing, embedded, transitions (issue #9)
+├── apply.rs         # ✅ shrink planned files, rewrite paths/IDs on extension change, re-parse verification (issue #9)
+├── report.rs        # Plan/result -> report.txt (next item)
+└── run.rs           # ✅ plan_run (preview) / execute / run: the only calls frontends make (issue #9)
 
 hcg-adapters/src/
 ├── archive.rs       # ✅ read_zip / write_zip, UTF-8/CP949 names, zip-bomb limits (issue #5)
