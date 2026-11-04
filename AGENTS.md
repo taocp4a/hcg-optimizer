@@ -47,12 +47,13 @@ Format spec: [`project/docs/HCG_FORMAT.md`](project/docs/HCG_FORMAT.md). Check t
 ├── web/                       # static GitHub Pages front end (HTML/CSS/JS)
 ├── project/                   # everything that is not code
 │   ├── docs/                  # requirements, format spec, architecture, dependencies
-│   ├── scripts/               # preflight.sh, check_layers.py, build_web.sh, reference_roundtrip.sh
+│   ├── scripts/               # preflight.sh, check_layers.py, build_web.sh, reference_roundtrip.sh, reference_summary.py
 │   ├── reference/             # Python reference implementation (hcg_parse.py, hcg_write.py)
 │   └── samples/               # test files
 │       ├── fmt/               # step-by-step files made in the app, v00–v12, with image folders
 │       ├── rev/               # property test files (no image folders -> missing-file report tests)
-│       └── large/             # speedtest.hcg + large images (6000×4000 JPG, 6 MB PNG). Example tool input
+│       ├── large/             # speedtest.hcg + large images (6000×4000 JPG, 6 MB PNG). Example tool input
+│       └── reference_summary.json  # Python reference output; the Rust tests compare against it
 └── .github/workflows/         # ci.yml (preflight), pages.yml (GitHub Pages deploy)
 ```
 
@@ -68,7 +69,7 @@ python3 -m http.server -d dist 8000    # preview the site locally
 cargo run -p hcg-cli -- input.zip      # run the CLI
 ```
 
-**preflight.sh checks:** CLAUDE.md and AGENTS.md are identical, layer dependency rules (`check_layers.py`), `cargo fmt --check`, `clippy -D warnings`, `cargo test`, wasm32 build, Python reference roundtrip over the samples.
+**preflight.sh checks:** CLAUDE.md and AGENTS.md are identical, layer dependency rules (`check_layers.py`), `cargo fmt --check`, `clippy -D warnings`, `cargo test`, wasm32 build, Python reference roundtrip over the samples, and that `reference_summary.json` is up to date (regenerate with `project/scripts/reference_summary.py` after changing samples or the reference).
 
 ## 5. Coding style
 

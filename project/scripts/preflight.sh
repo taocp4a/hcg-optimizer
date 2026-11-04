@@ -31,7 +31,8 @@ cargo test --workspace --locked
 step "6/7 wasm32 build (hcg-wasm)"
 cargo build -p hcg-wasm --target wasm32-unknown-unknown --release --locked
 
-step "7/7 Python reference roundtrip (project/samples)"
+step "7/7 Python reference: roundtrip + reference_summary.json up to date"
 "$ROOT/project/scripts/reference_roundtrip.sh"
+python3 -I "$ROOT/project/scripts/reference_summary.py" --check
 
 printf '\n\033[1;32mPREFLIGHT OK\033[0m\n'
