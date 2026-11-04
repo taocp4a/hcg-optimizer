@@ -28,6 +28,14 @@ jobs:
           cargo install wasm-bindgen-cli --version "$ver" --locked
       - name: Build site
         run: project/scripts/build_web.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Browser end-to-end test (blocks the deploy if it fails)
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/pw/node_modules" project/scripts/web_e2e.sh --no-build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
