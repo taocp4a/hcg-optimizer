@@ -13,8 +13,7 @@ function describe(err) {
   const text = String(err && err.message ? err.message : err);
   // A wasm trap or failed allocation usually means the tab ran out of memory.
   if (err instanceof WebAssembly.RuntimeError || /memory|unreachable/i.test(text)) {
-    return "The browser ran out of memory while processing this zip. Close other tabs and try again, " +
-      "or split the project into smaller zips.";
+    return "브라우저 메모리가 부족하여 처리하지 못했습니다. 다른 탭을 닫고 다시 시도하십시오.";
   }
   return text;
 }
