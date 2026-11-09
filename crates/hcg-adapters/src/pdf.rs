@@ -1,13 +1,16 @@
 //! Draws a page overview ([`hcg_app::overview::Overview`], issue #19) as a PDF.
 //!
-//! Each thumbnail BMP is decoded on its own, converted to RGB, deflated and written as an image
-//! object right away, so only one decoded thumbnail exists at a time. Text uses the Helvetica
-//! base font (ASCII only, nothing embedded); the hcg name goes into the document title, which
-//! PDF stores as UTF-16 and so may be Korean.
+//! [`Thumbnails::prepare`] decodes each thumbnail BMP on its own, converts it to RGB and deflates
+//! it, so only one decoded thumbnail exists at a time; the prepared set is small (≈ 1 MB for a
+//! real 133-page project) and can be kept to draw again after the hcg is gone (issue #21).
+//! Text uses the Helvetica base font (ASCII only, nothing embedded); the hcg name goes into the
+//! document title, which PDF stores as UTF-16 and so may be Korean.
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
-use hcg_app::overview::{Overview, Rect};
+use hcg_app::bundle::Bundle;
+use hcg_app::overview::{Overview, OverviewSettings, Pages, Rect, layout, read_pages};
+use hcg_format::ParseError;
 use image::{ImageFormat, ImageReader, Limits};
 use pdf_writer::{Content, Filter, Finish, Name, Pdf, Ref, Str, TextStr};
 use std::io::{Cursor, Write};
@@ -21,17 +24,91 @@ const LABEL_SIZE: f32 = 8.0;
 const PLACEHOLDER: &str = "no thumbnail";
 const FONT: Name<'static> = Name(b"F1");
 
+/// One prepared thumbnail: 8-bit RGB, zlib-deflated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Prepared {
+    width: u32,
+    height: u32,
+    deflated: Vec<u8>,
+}
+
+/// Every page's thumbnail of one hcg, ready to draw.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Thumbnails {
+    /// The hcg stem.
+    pub title: String,
+    /// Width / height of the first page.
+    pub aspect: f32,
+    /// One entry per page; `None` where the page has no usable thumbnail.
+    images: Vec<Option<Prepared>>,
+}
+
+impl Thumbnails {
+    /// Decodes and deflates every thumbnail of `pages`, one at a time.
+    pub fn prepare(pages: &Pages<'_>) -> Self {
+        Self {
+            title: pages.title.clone(),
+            aspect: pages.aspect,
+            images: (1..=pages.page_count)
+                .map(|page| pages.thumbnail(page).and_then(decode_thumbnail))
+                .collect(),
+        }
+    }
+
+    /// Reads `bundle`'s hcg and prepares its thumbnails. Fails only if the hcg cannot be read.
+    pub fn from_bundle(bundle: &Bundle) -> Result<Self, ParseError> {
+        Ok(Self::prepare(&read_pages(bundle)?))
+    }
+
+    pub fn page_count(&self) -> usize {
+        self.images.len()
+    }
+
+    /// 1-based pages without a usable thumbnail (drawn as an empty box).
+    pub fn blank_pages(&self) -> Vec<usize> {
+        (1..=self.images.len())
+            .filter(|&p| self.images[p - 1].is_none())
+            .collect()
+    }
+
+    /// The sheets for these thumbnails with `settings`.
+    pub fn layout(&self, settings: &OverviewSettings) -> Overview {
+        layout(&self.title, self.page_count(), self.aspect, settings)
+    }
+
+    fn get(&self, page: usize) -> Option<&Prepared> {
+        self.images.get(page.checked_sub(1)?)?.as_ref()
+    }
+}
+
 /// The drawn PDF.
 #[derive(Debug)]
 pub struct OverviewPdf {
     pub bytes: Vec<u8>,
+    /// Suggested file name: `<stem>_pages.pdf`.
+    pub file_name: String,
+    pub page_count: usize,
+    pub sheets: usize,
     /// 1-based pages drawn as an empty "no thumbnail" box: saved without a thumbnail, or one that
     /// could not be decoded.
     pub blank_pages: Vec<usize>,
 }
 
-/// Draws `overview`. Never fails: a thumbnail that cannot be used becomes a placeholder box.
-pub fn write_overview_pdf(overview: &Overview<'_>) -> OverviewPdf {
+/// Lays out and draws `thumbnails` with `settings`.
+pub fn overview_pdf(thumbnails: &Thumbnails, settings: &OverviewSettings) -> OverviewPdf {
+    let overview = thumbnails.layout(settings);
+    OverviewPdf {
+        bytes: write_overview_pdf(&overview, thumbnails),
+        file_name: overview.file_name,
+        page_count: overview.page_count,
+        sheets: overview.sheets.len(),
+        blank_pages: thumbnails.blank_pages(),
+    }
+}
+
+/// Draws `overview` with `thumbnails`. Never fails: a page without a usable thumbnail becomes a
+/// placeholder box.
+pub fn write_overview_pdf(overview: &Overview, thumbnails: &Thumbnails) -> Vec<u8> {
     let (paper_w, paper_h) = overview.paper;
     let mut next = 0;
     let mut alloc = || {
@@ -56,7 +133,6 @@ pub fn write_overview_pdf(overview: &Overview<'_>) -> OverviewPdf {
         )));
 
     let mut page_ids = Vec::with_capacity(overview.sheets.len());
-    let mut blank_pages = Vec::new();
     for sheet in &overview.sheets {
         let page_id = alloc();
         let content_id = alloc();
@@ -72,11 +148,14 @@ pub fn write_overview_pdf(overview: &Overview<'_>) -> OverviewPdf {
         );
         let mut images = Vec::new();
         for cell in &sheet.cells {
-            let decoded = overview.thumbnail(cell.page).and_then(decode_thumbnail);
-            match decoded {
-                Some((width, height, deflated)) => {
+            match thumbnails.get(cell.page) {
+                Some(&Prepared {
+                    width,
+                    height,
+                    ref deflated,
+                }) => {
                     let image_id = alloc();
-                    let mut image = pdf.image_xobject(image_id, &deflated);
+                    let mut image = pdf.image_xobject(image_id, deflated);
                     image.filter(Filter::FlateDecode);
                     image.width(width as i32);
                     image.height(height as i32);
@@ -94,7 +173,6 @@ pub fn write_overview_pdf(overview: &Overview<'_>) -> OverviewPdf {
                     images.push((name, image_id));
                 }
                 None => {
-                    blank_pages.push(cell.page);
                     outline(&mut content, cell.frame, paper_h, 0.75);
                     let f = cell.frame;
                     let x = f.x + (f.width - helvetica_width(PLACEHOLDER, LABEL_SIZE)) / 2.0;
@@ -130,14 +208,11 @@ pub fn write_overview_pdf(overview: &Overview<'_>) -> OverviewPdf {
     let count = page_ids.len() as i32;
     pdf.pages(tree_id).kids(page_ids).count(count);
 
-    OverviewPdf {
-        bytes: pdf.finish(),
-        blank_pages,
-    }
+    pdf.finish()
 }
 
-/// Decodes a thumbnail BMP to deflated 8-bit RGB: `(width, height, zlib data)`.
-fn decode_thumbnail(bmp: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
+/// Decodes a thumbnail BMP to deflated 8-bit RGB.
+fn decode_thumbnail(bmp: &[u8]) -> Option<Prepared> {
     let mut reader = ImageReader::with_format(Cursor::new(bmp), ImageFormat::Bmp);
     let mut limits = Limits::default();
     limits.max_image_width = Some(MAX_THUMBNAIL_SIDE);
@@ -151,7 +226,11 @@ fn decode_thumbnail(bmp: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
     }
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(rgb.as_raw()).ok()?;
-    Some((width, height, encoder.finish().ok()?))
+    Some(Prepared {
+        width,
+        height,
+        deflated: encoder.finish().ok()?,
+    })
 }
 
 /// The largest rectangle of `aspect` inside `frame`, centred.

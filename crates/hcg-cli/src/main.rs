@@ -2,7 +2,7 @@
 //!
 //! Frontend layer: arguments, file I/O, and display only. All processing goes through the same
 //! `hcg-app` calls the web page uses: `read_zip` -> `plan_run` -> `execute` -> `package` ->
-//! `write_zip`; with `--pdf`, `pair_bundles` -> `page_overview` -> `write_overview_pdf`.
+//! `write_zip`; with `--pdf`, `pair_bundles` -> `Thumbnails::from_bundle` -> `overview_pdf`.
 
 use std::fs;
 use std::io::Write;
@@ -12,8 +12,8 @@ use std::process::ExitCode;
 use clap::Parser;
 use hcg_adapters::archive::{ZipLimits, read_zip, write_zip};
 use hcg_adapters::image_codec::PureRustCodec;
-use hcg_adapters::pdf::write_overview_pdf;
-use hcg_app::overview::{OverviewSettings, PerSheet, overview_file_name, page_overview};
+use hcg_adapters::pdf::{Thumbnails, overview_pdf};
+use hcg_app::overview::{OverviewSettings, PerSheet, overview_file_name};
 use hcg_app::package::{InputFile, NameEncoding, pair_bundles};
 use hcg_app::policy::{KeepReason, PlannedAction, ResizePolicy};
 use hcg_app::ports::{ImageFormat, Progress};
@@ -170,8 +170,8 @@ fn run_pdf(args: &Args, input: &Path) -> Result<u8, Failure> {
     }
     let mut failed = false;
     for bundle in &bundles {
-        let overview = match page_overview(bundle, &settings) {
-            Ok(overview) => overview,
+        let thumbnails = match Thumbnails::from_bundle(bundle) {
+            Ok(thumbnails) => thumbnails,
             Err(e) => {
                 eprintln!("{}: cannot be read: {e}", bundle.hcg_path);
                 failed = true;
@@ -183,13 +183,13 @@ fn run_pdf(args: &Args, input: &Path) -> Result<u8, Failure> {
             .clone()
             .unwrap_or_else(|| input.with_file_name(overview_file_name(&bundle.stem)));
         check_output(input, &output, args.force)?;
-        let pdf = write_overview_pdf(&overview);
+        let pdf = overview_pdf(&thumbnails, &settings);
         write_atomically(&output, &pdf.bytes)?;
         eprintln!(
             "Wrote {} ({} page(s) on {} sheet(s), {})",
             output.display(),
-            overview.page_count,
-            overview.sheets.len(),
+            pdf.page_count,
+            pdf.sheets,
             human_size(pdf.bytes.len() as u64)
         );
         if !pdf.blank_pages.is_empty() {

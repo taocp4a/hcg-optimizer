@@ -131,6 +131,7 @@ dependencies = [
  "encoding_rs",
  "flate2",
  "hcg-app",
+ "hcg-format",
  "image",
  "jpeg-decoder",
  "pdf-writer",

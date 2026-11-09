@@ -2,9 +2,9 @@
 
 use std::path::{Path, PathBuf};
 
-use hcg_adapters::pdf::write_overview_pdf;
+use hcg_adapters::pdf::{Thumbnails, overview_pdf};
 use hcg_app::bundle::Bundle;
-use hcg_app::overview::{OverviewSettings, PerSheet, page_overview};
+use hcg_app::overview::{OverviewSettings, PerSheet};
 
 fn samples() -> Vec<Bundle> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../project/samples");
@@ -45,10 +45,12 @@ fn every_sample_gives_one_image_per_page() {
     let bundles = samples();
     assert!(bundles.len() > 50);
     for bundle in &bundles {
+        let thumbnails =
+            Thumbnails::from_bundle(bundle).unwrap_or_else(|e| panic!("{}: {e}", bundle.stem));
         for per_sheet in PerSheet::ALL {
-            let overview = page_overview(bundle, &OverviewSettings { per_sheet })
-                .unwrap_or_else(|e| panic!("{}: {e}", bundle.stem));
-            let pdf = write_overview_pdf(&overview);
+            let settings = OverviewSettings { per_sheet };
+            let overview = thumbnails.layout(&settings);
+            let pdf = overview_pdf(&thumbnails, &settings);
             let name = &bundle.stem;
             assert!(pdf.bytes.starts_with(b"%PDF-"), "{name}");
             assert!(
@@ -58,6 +60,11 @@ fn every_sample_gives_one_image_per_page() {
             assert!(pdf.blank_pages.is_empty(), "{name}: {:?}", pdf.blank_pages);
             let sheets = overview.page_count.div_ceil(per_sheet.count()).max(1);
             assert_eq!(overview.sheets.len(), sheets, "{name}");
+            assert_eq!(
+                (pdf.sheets, pdf.page_count),
+                (sheets, overview.page_count),
+                "{name}"
+            );
             let pages = count(&pdf.bytes, b"/Type /Page") - count(&pdf.bytes, b"/Type /Pages");
             assert_eq!(pages, sheets, "{name}: PDF pages");
             assert_eq!(
@@ -83,10 +90,11 @@ fn every_sample_gives_one_image_per_page() {
 fn title_keeps_non_ascii_names() {
     let mut bundle = samples().into_iter().next().expect("a sample");
     bundle.stem = "주일 3부".into();
-    let overview = page_overview(&bundle, &OverviewSettings::default()).expect("overview");
-    assert_eq!(overview.file_name, "주일 3부_pages.pdf");
+    let thumbnails = Thumbnails::from_bundle(&bundle).expect("thumbnails");
+    let overview = thumbnails.layout(&OverviewSettings::default());
     assert!(overview.sheets.iter().all(|s| s.header.is_ascii()));
-    let pdf = write_overview_pdf(&overview);
+    let pdf = overview_pdf(&thumbnails, &OverviewSettings::default());
+    assert_eq!(pdf.file_name, "주일 3부_pages.pdf");
     // PDF text strings outside PDFDocEncoding are UTF-16BE with a byte-order mark (hex here).
     let hex: String = std::iter::once("<FEFF".to_string())
         .chain("주일".encode_utf16().map(|u| format!("{u:04X}")))
@@ -99,5 +107,5 @@ fn title_keeps_non_ascii_names() {
 fn unreadable_hcg_is_an_error() {
     let mut bundle = samples().into_iter().next().expect("a sample");
     bundle.hcg.truncate(100);
-    assert!(page_overview(&bundle, &OverviewSettings::default()).is_err());
+    assert!(Thumbnails::from_bundle(&bundle).is_err());
 }
