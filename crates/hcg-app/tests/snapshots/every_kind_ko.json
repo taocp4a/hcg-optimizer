@@ -1,0 +1,257 @@
+{
+  "schema": 1,
+  "language": "ko",
+  "tool": {
+    "name": "hcg-optimizer",
+    "version": "0.1.0"
+  },
+  "bundle": {
+    "stem": "speedtest",
+    "hcg_path": "speedtest.hcg",
+    "folder_path": "speedtest"
+  },
+  "status": "ok",
+  "summary": {
+    "headline": "이미지 2개 축소 (27.8 MB → 318.3 KB) · 확인 필요 4건",
+    "images_total": 5,
+    "images_shrunk": 2,
+    "images_renamed": 1,
+    "bytes_before": 29126000,
+    "bytes_after": 325908,
+    "warnings": 4
+  },
+  "failure": null,
+  "hcg": {
+    "version": 120,
+    "pages": 5,
+    "image_refs": 4
+  },
+  "policy": {
+    "max_width": 1920,
+    "max_height": 1080,
+    "max_bytes": 100000,
+    "jpeg_quality": 90,
+    "min_jpeg_quality": 50
+  },
+  "images": [
+    {
+      "file": "D727E722bg_6000x4000_photo.jpg",
+      "path": "C:\\test\\bg_6000x4000_photo.jpg",
+      "used_on": [
+        {
+          "page": null,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        },
+        {
+          "page": 5,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "jpeg",
+        "width": 6000,
+        "height": 4000,
+        "bytes": 23000000,
+        "quality": null
+      },
+      "action": "shrunk",
+      "reason": null,
+      "after": {
+        "format": "jpeg",
+        "width": 1620,
+        "height": 1080,
+        "bytes": 96228,
+        "quality": 55
+      },
+      "renamed_to": null
+    },
+    {
+      "file": "D4E3A7EAbg_1080_small.jpg",
+      "path": "C:\\test\\bg_1080_small.jpg",
+      "used_on": [
+        {
+          "page": 3,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "jpeg",
+        "width": 1920,
+        "height": 1080,
+        "bytes": 67000,
+        "quality": null
+      },
+      "action": "kept",
+      "reason": "within_limits",
+      "after": null,
+      "renamed_to": null
+    },
+    {
+      "file": "2D00575Abg_1080_noise.png",
+      "path": "C:\\test\\bg_1080_noise.png",
+      "used_on": [
+        {
+          "page": 4,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "png",
+        "width": 1920,
+        "height": 1080,
+        "bytes": 6000000,
+        "quality": null
+      },
+      "action": "shrunk",
+      "reason": null,
+      "after": {
+        "format": "jpeg",
+        "width": 1920,
+        "height": 1080,
+        "bytes": 103680,
+        "quality": 50
+      },
+      "renamed_to": {
+        "file": "3F8B560Bbg_1080_noise.jpg",
+        "path": "C:\\test\\bg_1080_noise.jpg"
+      }
+    },
+    {
+      "file": "28BD2D7Emark_1.png",
+      "path": "C:\\test\\mark_1.png",
+      "used_on": [
+        {
+          "page": 1,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "webp",
+        "width": 800,
+        "height": 600,
+        "bytes": 50000,
+        "quality": null
+      },
+      "action": "kept",
+      "reason": "not_supported_by_app",
+      "after": null,
+      "renamed_to": null
+    },
+    {
+      "file": "74EB6CEBmark_2.png",
+      "path": "C:\\test\\mark_2.png",
+      "used_on": [
+        {
+          "page": 1,
+          "layer": 1,
+          "object": 2,
+          "role": "primary",
+          "frame": null
+        }
+      ],
+      "before": {
+        "format": "gif",
+        "width": 320,
+        "height": 240,
+        "bytes": 9000,
+        "quality": null
+      },
+      "action": "kept",
+      "reason": "not_resized",
+      "after": null,
+      "renamed_to": null
+    }
+  ],
+  "missing": [
+    {
+      "path": "C:\\test\\mark_1.png",
+      "expected_file": "28BD2D7Emark_1.png",
+      "used_on": [
+        {
+          "page": 1,
+          "layer": 1,
+          "object": 1,
+          "role": "primary",
+          "frame": null
+        }
+      ]
+    }
+  ],
+  "embedded": [
+    {
+      "kind": "embedded",
+      "bytes": 2537,
+      "used_on": {
+        "page": 1,
+        "layer": 1,
+        "object": 1,
+        "role": "primary",
+        "frame": null
+      }
+    },
+    {
+      "kind": "empty",
+      "bytes": 0,
+      "used_on": {
+        "page": 1,
+        "layer": 1,
+        "object": 1,
+        "role": "primary",
+        "frame": null
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "page": 2,
+      "kind": "left_to_right",
+      "type_value": 2,
+      "duration_ms": 2000
+    }
+  ],
+  "unreferenced_files": 1,
+  "other_files": {
+    "unpaired": [
+      "readme.txt"
+    ],
+    "ignored": 2
+  },
+  "warnings": [
+    {
+      "code": "over_size_limit",
+      "message": "3F8B560Bbg_1080_noise.jpg: 최저 화질로 저장해도 101.3 KB입니다(기준 97.7 KB).",
+      "file": "3F8B560Bbg_1080_noise.jpg"
+    },
+    {
+      "code": "not_supported_by_app",
+      "message": "28BD2D7Emark_1.png: ez-CGER가 지원하지 않는 WebP 형식입니다. PNG 또는 JPG로 바꾸어 다시 넣으십시오.",
+      "file": "28BD2D7Emark_1.png"
+    },
+    {
+      "code": "missing_image",
+      "message": "C:\\test\\mark_1.png: 이미지 폴더에 없습니다(1페이지 사용). 이 경로에 접근할 수 있는 PC에서만 표시됩니다.",
+      "file": "28BD2D7Emark_1.png"
+    },
+    {
+      "code": "transition_not_cut",
+      "message": "2페이지: 전환 효과가 '왼쪽에서 오른쪽'(2.0초)로 설정되어 있습니다. 느린 PC에서는 설정보다 오래 걸리므로 CUT을 권장합니다.",
+      "file": null
+    }
+  ],
+  "text": "hcg 이미지 최적화 점검 결과\n============================\n파일: speedtest.hcg\n결과: 이미지 2개 축소 (27.8 MB → 318.3 KB) · 확인 필요 4건\n\n[확인 필요 4건]\n  - 3F8B560Bbg_1080_noise.jpg: 최저 화질로 저장해도 101.3 KB입니다(기준 97.7 KB).\n  - 28BD2D7Emark_1.png: ez-CGER가 지원하지 않는 WebP 형식입니다. PNG 또는 JPG로 바꾸어 다시 넣으십시오.\n  - C:\\test\\mark_1.png: 이미지 폴더에 없습니다(1페이지 사용). 이 경로에 접근할 수 있는 PC에서만 표시됩니다.\n  - 2페이지: 전환 효과가 '왼쪽에서 오른쪽'(2.0초)로 설정되어 있습니다. 느린 PC에서는 설정보다 오래 걸리므로 CUT을 권장합니다.\n\n[이미지]\n  D727E722bg_6000x4000_photo.jpg\n    6000×4000 JPEG 21.9 MB → 1620×1080 JPEG 화질 55 94.0 KB\n    사용: 배경, 5페이지\n  D4E3A7EAbg_1080_small.jpg\n    1920×1080 JPEG 65.4 KB, 그대로 둠 (기준 이내)\n    사용: 3페이지\n  2D00575Abg_1080_noise.png\n    1920×1080 PNG 5.7 MB → 1920×1080 JPEG 화질 50 101.3 KB\n    파일 이름 변경: 3F8B560Bbg_1080_noise.jpg (경로 C:\\test\\bg_1080_noise.jpg)\n    사용: 4페이지\n  28BD2D7Emark_1.png\n    800×600 WEBP 48.8 KB, 그대로 둠 (ez-CGER 미지원 형식)\n    사용: 1페이지\n  74EB6CEBmark_2.png\n    320×240 GIF 8.8 KB, 그대로 둠 (변환 대상 형식 아님)\n    사용: 1페이지\n\n[hcg 안에 들어 있는 이미지 (변경하지 않음)]\n  내장 이미지 2.5 KB (1페이지)\n  빈 이미지 (1페이지)\n\n[기타 파일]\n  이미지 폴더에서 hcg가 사용하지 않는 파일 1개는 그대로 복사했습니다.\n  readme.txt: 어떤 hcg 파일에도 속하지 않아 결과에 포함하지 않았습니다.\n\n[파일 정보]\n  형식 버전 0x78, 5페이지, 이미지 참조 4개\n  적용 기준: 최대 1920×1080, 파일당 97.7 KB, JPEG 화질 90부터 50까지\n"
+}

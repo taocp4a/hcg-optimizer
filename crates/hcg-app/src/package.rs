@@ -123,6 +123,11 @@ pub struct PackagedBundle {
 /// Extracting the result next to the original therefore never overwrites it. Folder names are
 /// made unique if two bundles share a stem. File contents are moved, not copied (issue #13).
 pub fn output_files(results: Vec<PackagedBundle>) -> Vec<OutputFile> {
+    output_files_with(results, "report.txt")
+}
+
+/// Like [`output_files`] with another report file name (e.g. `점검결과.txt`, issue #21).
+pub fn output_files_with(results: Vec<PackagedBundle>, report_name: &str) -> Vec<OutputFile> {
     let mut used: Vec<String> = Vec::new();
     let mut out = Vec::new();
     for result in results {
@@ -148,7 +153,7 @@ pub fn output_files(results: Vec<PackagedBundle>) -> Vec<OutputFile> {
             }
         }
         out.push(OutputFile {
-            path: format!("{root}/report.txt"),
+            path: format!("{root}/{report_name}"),
             bytes: text_file_bytes(&result.report),
         });
     }
