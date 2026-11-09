@@ -14,6 +14,7 @@ flate2.workspace = true
 encoding_rs.workspace = true
 image.workspace = true
 jpeg-decoder.workspace = true
+pdf-writer.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

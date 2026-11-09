@@ -4,6 +4,8 @@
 //!   warnings. Changes nothing.
 //! - `apply(bundle, plan) -> Bundle`: converts images according to the plan and updates hcg
 //!   paths/IDs.
+//! - `overview::page_overview(bundle)`: lays out the page thumbnails as a contact sheet (PDF
+//!   drawn by an adapter).
 //!
 //! Input and output are an in-memory [`bundle::Bundle`]. Adapters turn a zip into a flat file
 //! list ([`package::InputFile`]); [`package::pair_bundles`] groups it into bundles and
@@ -16,6 +18,7 @@
 pub mod analyze;
 pub mod apply;
 pub mod bundle;
+pub mod overview;
 pub mod package;
 pub mod policy;
 pub mod ports;
