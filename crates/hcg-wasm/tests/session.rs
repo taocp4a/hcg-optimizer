@@ -150,7 +150,7 @@ fn bad_input_gives_messages() {
 /// Page overview (issue #19): from a zip or a bare .hcg, until optimize; settings validated.
 #[test]
 fn overview_pdf() {
-    let session = SessionCore::new(sample_zip("layered"), "").expect("session");
+    let mut session = SessionCore::new(sample_zip("layered"), "").expect("session");
     let pdf = session.overview_pdf(0, "").expect("pdf");
     assert!(pdf.starts_with(b"%PDF-"));
     assert!(session.overview_pdf(0, r#"{"per_sheet":20}"#).is_ok());
@@ -171,8 +171,48 @@ fn overview_pdf() {
     );
     assert!(bare.overview_pdf(0, "").expect("pdf").starts_with(b"%PDF-"));
     bare.optimize(&mut NoProgress).expect("optimize");
-    assert!(bare.overview_pdf(0, "").is_err(), "gone after optimize");
+    assert!(
+        bare.overview_pdf(0, "").is_ok(),
+        "still there after optimize"
+    );
 
-    let zip_named = SessionCore::open(sample_zip("layered"), "layered.zip", "").expect("zip");
+    // Never asked for before optimizing: prepared from the optimized hcg.
+    let mut fresh = SessionCore::new(sample_zip("speedtest"), "").expect("session");
+    fresh.optimize(&mut NoProgress).expect("optimize");
+    let after = fresh
+        .overview_pdf(0, r#"{"per_sheet":6}"#)
+        .expect("pdf after optimize");
+    assert!(after.starts_with(b"%PDF-"));
+
+    let mut zip_named = SessionCore::open(sample_zip("layered"), "layered.zip", "").expect("zip");
     assert!(zip_named.overview_pdf(0, "").is_ok());
+}
+
+/// Issue #21: `"language":"ko"` gives Korean plan, reports and `점검결과.txt`.
+#[test]
+fn korean_session() {
+    let mut session =
+        SessionCore::new(sample_zip("speedtest"), r#"{"language":"ko"}"#).expect("session");
+    let plan: serde_json::Value = serde_json::from_str(session.plan_json()).expect("plan");
+    assert_eq!(plan["language"], "ko");
+    let headline = plan["summary"]["headline"].as_str().expect("headline");
+    assert!(headline.starts_with("축소 대상 이미지"), "{headline}");
+    let zip = session.optimize(&mut NoProgress).expect("optimize");
+    let names: Vec<String> = read_zip(&zip, &ZipLimits::default())
+        .expect("zip")
+        .into_iter()
+        .map(|f| f.path)
+        .collect();
+    assert!(
+        names.contains(&"speedtest_optimized/점검결과.txt".to_string()),
+        "{names:?}"
+    );
+    let reports: serde_json::Value = serde_json::from_str(session.reports_json()).expect("json");
+    assert!(
+        reports[0]["text"]
+            .as_str()
+            .expect("text")
+            .starts_with("hcg 이미지 최적화 점검 결과")
+    );
+    assert!(SessionCore::new(sample_zip("speedtest"), r#"{"language":"fr"}"#).is_err());
 }
