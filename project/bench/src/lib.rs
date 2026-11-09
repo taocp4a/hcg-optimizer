@@ -1,7 +1,11 @@
 //! The full pipeline as the frontends will run it: zip in, zip out. Each stage is timed.
+//! `overview` times the page overview PDF (issue #19) the same way.
 
 use hcg_adapters::archive::{ZipLimits, read_zip, write_zip};
 use hcg_adapters::image_codec::PureRustCodec;
+use hcg_adapters::pdf::write_overview_pdf;
+use hcg_app::overview::{OverviewSettings, page_overview};
+use hcg_app::package::pair_bundles;
 use hcg_app::policy::ResizePolicy;
 use hcg_app::ports::NoProgress;
 use hcg_app::run::{execute, plan_run};
@@ -53,6 +57,39 @@ pub fn pipeline(zip: Vec<u8>, now: &dyn Fn() -> f64) -> String {
         t4 - t0,
         output.len() as f64 / 1_048_576.0
     )
+}
+
+/// Page overview PDF of every hcg in `zip`, as the web page makes it.
+pub fn overview(zip: Vec<u8>, now: &dyn Fn() -> f64) -> String {
+    let input_len = zip.len();
+    let t0 = now();
+    let files = read_zip(&zip, &ZipLimits::default()).expect("read zip");
+    drop(zip);
+    let bundles = pair_bundles(files).bundles;
+    let m1 = mem();
+    let t1 = now();
+    let mut pages = 0;
+    let mut pdf_len = 0;
+    for bundle in &bundles {
+        let overview = page_overview(bundle, &OverviewSettings::default()).expect("overview");
+        pages += overview.page_count;
+        pdf_len += write_overview_pdf(&overview).bytes.len();
+    }
+    let m2 = mem();
+    let t2 = now();
+    format!(
+        "overview: input {:.1} MB | read {:.0} ms{m1} | {pages} pages to PDF {:.0} ms{m2} | \
+         PDF {:.1} MB",
+        input_len as f64 / 1_048_576.0,
+        t1 - t0,
+        t2 - t1,
+        pdf_len as f64 / 1_048_576.0
+    )
+}
+
+#[wasm_bindgen]
+pub fn run_wasm_overview(zip: Vec<u8>) -> String {
+    overview(zip, &|| now())
 }
 
 #[wasm_bindgen]

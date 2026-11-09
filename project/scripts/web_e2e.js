@@ -1,10 +1,11 @@
 // Browser end-to-end test of the web page (issue #17), run by web_e2e.sh.
-//   node web_e2e.js <site-url> <input.zip> <out-dir>
-// Checks: plan shown, optimize, download, report viewer, cancel, and no request leaves the site (W1).
+//   node web_e2e.js <site-url> <input.zip> <out-dir> <bare.hcg>
+// Checks: plan shown, page overview PDF (zip and bare .hcg), optimize, download, report viewer,
+// cancel, and no request leaves the site (W1).
 const { chromium } = require("playwright");
 const path = require("path");
 
-const [url, input, outDir] = process.argv.slice(2);
+const [url, input, outDir, bareHcg] = process.argv.slice(2);
 const origin = new URL(url).origin;
 
 function check(cond, message) {
@@ -34,6 +35,15 @@ function check(cond, message) {
   check(!(await page.locator("#plan-body").innerText()).includes("[object"), "no stray object text in the plan");
   await page.screenshot({ path: path.join(outDir, "plan.png"), fullPage: true });
 
+  // Page overview PDF (issue #19), without leaving the plan.
+  await page.selectOption("#per-sheet", "6");
+  const [pdfDownload] = await Promise.all([page.waitForEvent("download"), page.click("button.overview")]);
+  const pdfPath = path.join(outDir, pdfDownload.suggestedFilename());
+  await pdfDownload.saveAs(pdfPath);
+  const pdfHead = require("fs").readFileSync(pdfPath).subarray(0, 5).toString();
+  check(/_pages\.pdf$/.test(pdfPath) && pdfHead === "%PDF-", `page overview downloaded: ${path.basename(pdfPath)}`);
+  check(await page.locator("#plan").isVisible(), "plan stays after the overview");
+
   // Cancel, then the same file is planned again.
   await page.click("#optimize");
   await page.waitForSelector("#progress:not([hidden])");
@@ -51,6 +61,13 @@ function check(cond, message) {
   await download.saveAs(saved);
   check(/_optimized\.zip$/.test(saved), `downloaded ${path.basename(saved)}`);
   await page.screenshot({ path: path.join(outDir, "result.png"), fullPage: true });
+
+  // A bare .hcg (no image folder) still gives a plan and a page overview.
+  await page.setInputFiles("#file", bareHcg);
+  await page.waitForSelector("#plan:not([hidden])", { timeout: 60000 });
+  check(/not in the image folder/.test(await page.innerText("#plan-body")), "bare .hcg plan reports the missing images");
+  const [hcgPdf] = await Promise.all([page.waitForEvent("download"), page.click("button.overview")]);
+  check(/_pages\.pdf$/.test(hcgPdf.suggestedFilename()), `bare .hcg gives ${hcgPdf.suggestedFilename()}`);
 
   // Wrong file type gives a message, not a blank page.
   await page.setInputFiles("#file", { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("x") });

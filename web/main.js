@@ -1,4 +1,5 @@
-// Page logic (issue #17): file choice, plan preview, progress, download, report viewer.
+// Page logic (issue #17): file choice, plan preview, progress, download, report viewer, and the
+// page overview PDF (issue #19).
 // Display only: all decisions and processing happen in Rust, inside worker.js.
 // Data from the zip (file names, paths) is inserted with textContent only, never as HTML.
 
@@ -18,6 +19,7 @@ const REASONS = {
 let worker = null;
 let currentFile = null;
 let downloadUrl = null;
+let currentPlan = null;
 
 // ---- small DOM helpers (textContent only) ----
 function el(tag, attrs = {}, ...children) {
@@ -105,8 +107,8 @@ function startWorker() {
 async function open(file) {
   clearError();
   show(null);
-  if (!/\.zip$/i.test(file.name)) {
-    showError("Please choose a .zip file containing the .hcg file and its image folder.");
+  if (!/\.(zip|hcg)$/i.test(file.name)) {
+    showError("Please choose a .zip file containing the .hcg file and its image folder, or a single .hcg file.");
     return;
   }
   currentFile = file;
@@ -114,7 +116,7 @@ async function open(file) {
   setStatus("Reading the zip…");
   if (!worker) startWorker();
   const buffer = await file.arrayBuffer();
-  worker.postMessage({ type: "open", buffer, settings: settingsJson() }, [buffer]);
+  worker.postMessage({ type: "open", buffer, name: file.name, settings: settingsJson() }, [buffer]);
 }
 
 function handle(msg) {
@@ -129,6 +131,12 @@ function handle(msg) {
     $("progress-text").textContent = msg.name ? `${msg.done + 1} / ${msg.total} · ${msg.name}` : "Writing the zip…";
   } else if (msg.type === "done") {
     renderResult(msg.zip, msg.reports);
+  } else if (msg.type === "overview") {
+    saveOverview(msg.index, msg.pdf);
+  } else if (msg.type === "overview-error") {
+    setOverviewBusy(false);
+    setStatus("");
+    showError(msg.message);
   } else if (msg.type === "error") {
     setStatus("");
     show(null);
@@ -138,11 +146,17 @@ function handle(msg) {
 
 // ---- plan ----
 function renderPlan(plan) {
+  currentPlan = plan;
   $("plan-headline").textContent = plan.summary.headline;
   const body = $("plan-body");
   body.replaceChildren();
-  for (const b of plan.bundles) {
+  plan.bundles.forEach((b, index) => {
     const box = el("div", { class: "bundle" }, el("h3", {}, b.bundle.hcg_path));
+    if (b.hcg) {
+      const button = el("button", { type: "button", class: "overview" }, "Page overview (PDF)");
+      button.addEventListener("click", () => requestOverview(index));
+      box.append(el("p", {}, button, el("span", { class: "muted" }, ` ${b.hcg.pages} page(s)`)));
+    }
     if (b.failure) {
       box.append(el("p", {}, el("span", { class: "tag failed" }, "cannot be processed"), " ", b.failure.message));
       box.append(el("p", { class: "muted" }, b.failure.advice));
@@ -164,12 +178,37 @@ function renderPlan(plan) {
       box.append(el("ul", { class: "warnings" }, ...b.warnings.map((w) => el("li", {}, w.message))));
     }
     body.append(box);
-  }
+  });
   for (const name of plan.other_files.unpaired) {
     body.append(el("p", { class: "muted" }, `Not part of any .hcg (left out): ${name}`));
   }
   $("optimize").disabled = plan.summary.nothing_to_do;
   show("plan");
+}
+
+// ---- page overview ----
+function setOverviewBusy(busy) {
+  for (const b of document.querySelectorAll("button.overview")) b.disabled = busy;
+}
+
+function requestOverview(index) {
+  clearError();
+  setOverviewBusy(true);
+  setStatus("Making the page overview…");
+  worker.postMessage({ type: "overview", index, settings: JSON.stringify({ per_sheet: Number($("per-sheet").value) }) });
+}
+
+function saveOverview(index, pdfBuffer) {
+  setOverviewBusy(false);
+  const stem = currentPlan.bundles[index].bundle.stem;
+  const name = `${stem}_pages.pdf`;
+  const url = URL.createObjectURL(new Blob([pdfBuffer], { type: "application/pdf" }));
+  const link = el("a", { href: url, download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  setStatus(`Page overview saved: ${name} (${size(pdfBuffer.byteLength)})`);
 }
 
 // ---- result ----

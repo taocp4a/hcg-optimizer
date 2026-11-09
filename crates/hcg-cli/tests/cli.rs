@@ -241,3 +241,47 @@ fn json_output_and_policy_flags() {
         (Some(640), Some(360))
     );
 }
+
+/// `--pdf` (issue #19): default name next to the input, `--per-sheet`, usage errors, and the
+/// overwrite protection shared with the zip output.
+#[test]
+fn page_overview_pdf() {
+    let dir = tmp("pdf");
+    let zip = sample_zip(&dir, "layered");
+    let o = cli(&[&zip, &"--pdf"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let pdf = dir.join("layered_pages.pdf");
+    let bytes = std::fs::read(&pdf).expect("default PDF name");
+    assert!(bytes.starts_with(b"%PDF-"));
+    assert!(
+        stderr(&o).contains("Wrote") && stderr(&o).contains("sheet"),
+        "{}",
+        stderr(&o)
+    );
+    assert!(stdout(&o).is_empty(), "{}", stdout(&o));
+    assert!(
+        !dir.join("layered_optimized.zip").exists(),
+        "no optimizing with --pdf"
+    );
+
+    let again = cli(&[&zip, &"--pdf"]);
+    assert_eq!(again.status.code(), Some(2), "existing PDF needs --force");
+    let forced = cli(&[&zip, &"--pdf", &"--force", &"--per-sheet", &"6"]);
+    assert_eq!(forced.status.code(), Some(0), "{}", stderr(&forced));
+
+    let out = dir.join("custom.pdf");
+    let o = cli(&[&samples().join("speedtest.hcg"), &"--pdf", &"-o", &out]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert!(out.exists());
+
+    for bad in [
+        vec!["--pdf", "--per-sheet", "9"],
+        vec!["--per-sheet", "6"],
+        vec!["--pdf", "--dry-run"],
+        vec!["--pdf", "--json"],
+    ] {
+        let mut args: Vec<&dyn AsRef<std::ffi::OsStr>> = vec![&zip];
+        args.extend(bad.iter().map(|a| a as &dyn AsRef<std::ffi::OsStr>));
+        assert_eq!(cli(&args).status.code(), Some(2), "{bad:?}");
+    }
+}

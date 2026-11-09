@@ -438,3 +438,24 @@ fn embedded_and_empty_images() {
     assert_eq!(resaved.len(), 1);
     assert_eq!(resaved[0].source, ImageSource::Empty);
 }
+
+/// Every sample page carries the app's thumbnail: a complete BMP whose size field matches the
+/// returned bytes. Out-of-range pages have none.
+#[test]
+fn thumbnails_are_complete_bmps() {
+    let mut pages = 0;
+    for (name, bytes) in samples() {
+        let file = parse_ok(&name, &bytes);
+        for index in 0..file.page_count() {
+            let bmp = file
+                .thumbnail(index)
+                .unwrap_or_else(|| panic!("{name}: page {} has no thumbnail", index + 1));
+            assert_eq!(&bmp[..2], b"BM", "{name}: page {}", index + 1);
+            let size = u32::from_le_bytes(bmp[2..6].try_into().unwrap()) as usize;
+            assert_eq!(size, bmp.len(), "{name}: page {}", index + 1);
+            pages += 1;
+        }
+        assert!(file.thumbnail(file.page_count()).is_none(), "{name}");
+    }
+    assert!(pages > 0);
+}

@@ -35,6 +35,12 @@ ez-CGER's image-open dialog accepts exactly six formats: PNG, JPG/JPEG, BMP, TGA
 - Pages whose transition is not CUT (transitions can take much longer on slow PCs)
 - Warnings for unreadable blocks or a different format version
 
+## Page overview PDF (issue #19)
+- From the same input (or a single `.hcg` without its image folder), make a PDF that shows every page as the thumbnail the app stored in the hcg, several per sheet, so the service flow can be checked and shared without ez-CGER. Available in the CLI (`--pdf`) and on the web page.
+- A4 landscape; 6, 12 (default) or 20 thumbnails per sheet; page numbers under each thumbnail; blank pages kept so the numbering matches the app.
+- Visible text is ASCII only (no embedded fonts); the hcg name goes into the PDF title and the file name (`<hcg name>_pages.pdf`).
+- A separate download, not part of the optimized zip.
+
 ## Acceptance criteria
 - Every hcg under samples/ must be byte-identical after being read and written back. The Python reference (reference/hcg_write.py) passes this on all 91 test files, including embedded images and an empty image block.
 - When the resized hcg is read back, only image paths may differ; all other fields must be equal.

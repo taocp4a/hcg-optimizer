@@ -3,6 +3,9 @@
 
 use hcg_adapters::archive::{ZipLimits, read_zip, write_zip};
 use hcg_adapters::image_codec::PureRustCodec;
+use hcg_adapters::pdf::write_overview_pdf;
+use hcg_app::overview::{OverviewSettings, PerSheet, page_overview};
+use hcg_app::package::{InputFile, NameEncoding};
 use hcg_app::policy::ResizePolicy;
 use hcg_app::ports::Progress;
 use hcg_app::report::plan_report;
@@ -49,7 +52,29 @@ pub fn policy_from_json(json: &str) -> Result<ResizePolicy, String> {
     Ok(policy)
 }
 
-/// One zip: read and planned on creation, optimized once.
+/// Overview options from the page; every field is optional.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OverviewJson {
+    per_sheet: Option<usize>,
+}
+
+/// Parses the overview settings JSON (`""` or `{}` gives the defaults).
+pub fn overview_settings_from_json(json: &str) -> Result<OverviewSettings, String> {
+    let parsed: OverviewJson = if json.trim().is_empty() {
+        OverviewJson::default()
+    } else {
+        serde_json::from_str(json).map_err(|e| format!("Invalid settings: {e}"))?
+    };
+    let per_sheet = match parsed.per_sheet {
+        None => PerSheet::default(),
+        Some(n) => PerSheet::from_count(n)
+            .ok_or_else(|| format!("Invalid settings: per_sheet must be 6, 12 or 20, got {n}"))?,
+    };
+    Ok(OverviewSettings { per_sheet })
+}
+
+/// One zip (or a bare .hcg): read and planned on creation, optimized once.
 pub struct SessionCore {
     policy: ResizePolicy,
     codec: PureRustCodec,
@@ -65,21 +90,57 @@ impl SessionCore {
         let files = read_zip(&zip, &ZipLimits::default())
             .map_err(|e| format!("This file could not be opened as a zip: {e}"))?;
         drop(zip);
+        Ok(Self::plan(files, policy))
+    }
+
+    /// Like [`SessionCore::new`], but a file named `*.hcg` is taken as a bare hcg without its
+    /// image folder (enough for the page overview; the plan reports the missing images).
+    pub fn open(bytes: Vec<u8>, file_name: &str, settings_json: &str) -> Result<Self, String> {
+        if !file_name.to_ascii_lowercase().ends_with(".hcg") {
+            return Self::new(bytes, settings_json);
+        }
+        let policy = policy_from_json(settings_json)?;
+        let file = InputFile {
+            path: file_name.to_string(),
+            bytes,
+            name_encoding: NameEncoding::Utf8Guessed,
+        };
+        Ok(Self::plan(vec![file], policy))
+    }
+
+    fn plan(files: Vec<InputFile>, policy: ResizePolicy) -> Self {
         let codec = PureRustCodec::default();
         let plan = plan_run(files, &codec, &policy);
         let plan_json = serde_json::to_string(&plan_report(&plan)).unwrap_or_default();
-        Ok(Self {
+        Self {
             policy,
             codec,
             plan: Some(plan),
             plan_json,
             reports_json: "[]".into(),
-        })
+        }
     }
 
     /// The preview (`hcg_app::report::PlanReport`) as JSON.
     pub fn plan_json(&self) -> &str {
         &self.plan_json
+    }
+
+    /// The page overview PDF of bundle `index` (order of the plan's `bundles`). Available until
+    /// `optimize` runs.
+    pub fn overview_pdf(&self, index: usize, settings_json: &str) -> Result<Vec<u8>, String> {
+        let settings = overview_settings_from_json(settings_json)?;
+        let plan = self
+            .plan
+            .as_ref()
+            .ok_or("Open the file again to make the page overview.")?;
+        let (bundle, _) = plan
+            .bundles
+            .get(index)
+            .ok_or_else(|| format!("There is no .hcg number {}.", index + 1))?;
+        let overview = page_overview(bundle, &settings)
+            .map_err(|e| format!("{} could not be read: {e}", bundle.hcg_path))?;
+        Ok(write_overview_pdf(&overview).bytes)
     }
 
     /// Shrinks images and returns the output zip. Can run once per session.

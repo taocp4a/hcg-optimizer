@@ -4,6 +4,7 @@
 
 use crate::error::{ParseError, ParseErrorKind};
 use std::borrow::Cow;
+use std::ops::Range;
 
 use crate::model::{HcgFile, Layer, Object, Page, Payload, SafeBmp};
 use crate::reader::{Reader, i32_at, i64_at, u32_at, u64_at};
@@ -115,19 +116,22 @@ fn read_page(r: &mut Reader<'_>) -> Result<Page, ParseError> {
     let cue_len = r.byte_len(cue_count, 40, "cue count", trailer_start)?;
     r.scope("cues", |r| r.take(cue_len).map(|_| ()))?;
     // hdr+2: thumbnail BMP present.
-    if header[2] != 0 {
-        r.scope("thumbnail", read_thumbnail)?;
-    }
+    let thumbnail = if header[2] != 0 {
+        Some(r.scope("thumbnail", read_thumbnail)?)
+    } else {
+        None
+    };
     let trailer = trailer_start..r.pos();
 
     Ok(Page {
         header,
         layers,
         trailer,
+        thumbnail,
     })
 }
 
-fn read_thumbnail(r: &mut Reader<'_>) -> Result<(), ParseError> {
+fn read_thumbnail(r: &mut Reader<'_>) -> Result<Range<usize>, ParseError> {
     let at = r.pos();
     let head = r.peek(6).ok_or_else(|| {
         r.error(
@@ -147,7 +151,7 @@ fn read_thumbnail(r: &mut Reader<'_>) -> Result<(), ParseError> {
     }
     let len = r.count(size.into(), "thumbnail size", at)?;
     r.take(len)?;
-    Ok(())
+    Ok(at..at + len)
 }
 
 /// §4 Layer.

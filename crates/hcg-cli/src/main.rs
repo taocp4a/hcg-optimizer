@@ -2,7 +2,7 @@
 //!
 //! Frontend layer: arguments, file I/O, and display only. All processing goes through the same
 //! `hcg-app` calls the web page uses: `read_zip` -> `plan_run` -> `execute` -> `package` ->
-//! `write_zip`.
+//! `write_zip`; with `--pdf`, `pair_bundles` -> `page_overview` -> `write_overview_pdf`.
 
 use std::fs;
 use std::io::Write;
@@ -12,7 +12,9 @@ use std::process::ExitCode;
 use clap::Parser;
 use hcg_adapters::archive::{ZipLimits, read_zip, write_zip};
 use hcg_adapters::image_codec::PureRustCodec;
-use hcg_app::package::{InputFile, NameEncoding};
+use hcg_adapters::pdf::write_overview_pdf;
+use hcg_app::overview::{OverviewSettings, PerSheet, overview_file_name, page_overview};
+use hcg_app::package::{InputFile, NameEncoding, pair_bundles};
 use hcg_app::policy::{KeepReason, PlannedAction, ResizePolicy};
 use hcg_app::ports::{ImageFormat, Progress};
 use hcg_app::run::{RunPlan, execute, plan_run};
@@ -24,7 +26,8 @@ struct Args {
     /// A zip with `xxx.hcg` and its `xxx/` image folder, or an .hcg file (its same-named
     /// sibling folder is added automatically).
     input: PathBuf,
-    /// Output zip [default: <input name>_optimized.zip next to the input].
+    /// Output zip [default: <input name>_optimized.zip next to the input]; with --pdf, the PDF
+    /// [default: <hcg name>_pages.pdf next to the input].
     #[arg(short, long)]
     output: Option<PathBuf>,
     /// Print the plan only: no decoding, nothing written.
@@ -33,6 +36,13 @@ struct Args {
     /// Print the reports as JSON (the viewer's data) instead of text.
     #[arg(long)]
     json: bool,
+    /// Write a page overview PDF (page thumbnails, A4 landscape) instead of optimizing. No image
+    /// folder needed.
+    #[arg(long, conflicts_with_all = ["dry_run", "json"])]
+    pdf: bool,
+    /// Thumbnails per PDF sheet with --pdf: 6, 12 or 20 [default: 12].
+    #[arg(long, value_name = "N", requires = "pdf")]
+    per_sheet: Option<usize>,
     /// Overwrite an existing output file.
     #[arg(long)]
     force: bool,
@@ -76,6 +86,9 @@ fn run(args: Args) -> Result<u8, Failure> {
 
     let input = fs::canonicalize(&args.input)
         .map_err(|e| Failure(EXIT_IO, format!("{}: {e}", args.input.display())))?;
+    if args.pdf {
+        return run_pdf(&args, &input);
+    }
     let output = args
         .output
         .clone()
@@ -124,6 +137,66 @@ fn run(args: Args) -> Result<u8, Failure> {
         output.display(),
         human_size(zip.len() as u64)
     );
+    Ok(if failed { EXIT_FAILED } else { 0 })
+}
+
+/// `--pdf`: one page overview per hcg in the input (issue #19).
+fn run_pdf(args: &Args, input: &Path) -> Result<u8, Failure> {
+    let per_sheet = match args.per_sheet {
+        None => PerSheet::default(),
+        Some(n) => PerSheet::from_count(n).ok_or_else(|| {
+            Failure(
+                EXIT_USAGE,
+                format!("--per-sheet must be 6, 12 or 20, got {n}"),
+            )
+        })?,
+    };
+    let settings = OverviewSettings { per_sheet };
+    let bundles = pair_bundles(read_input(input)?).bundles;
+    if bundles.is_empty() {
+        return Err(Failure(
+            EXIT_FAILED,
+            format!("no .hcg file found in {}", input.display()),
+        ));
+    }
+    if args.output.is_some() && bundles.len() > 1 {
+        return Err(Failure(
+            EXIT_USAGE,
+            format!(
+                "-o names one PDF, but the input has {} .hcg files; leave it out",
+                bundles.len()
+            ),
+        ));
+    }
+    let mut failed = false;
+    for bundle in &bundles {
+        let overview = match page_overview(bundle, &settings) {
+            Ok(overview) => overview,
+            Err(e) => {
+                eprintln!("{}: cannot be read: {e}", bundle.hcg_path);
+                failed = true;
+                continue;
+            }
+        };
+        let output = args
+            .output
+            .clone()
+            .unwrap_or_else(|| input.with_file_name(overview_file_name(&bundle.stem)));
+        check_output(input, &output, args.force)?;
+        let pdf = write_overview_pdf(&overview);
+        write_atomically(&output, &pdf.bytes)?;
+        eprintln!(
+            "Wrote {} ({} page(s) on {} sheet(s), {})",
+            output.display(),
+            overview.page_count,
+            overview.sheets.len(),
+            human_size(pdf.bytes.len() as u64)
+        );
+        if !pdf.blank_pages.is_empty() {
+            let pages: Vec<String> = pdf.blank_pages.iter().map(|p| p.to_string()).collect();
+            eprintln!("  no thumbnail for page(s) {}", pages.join(", "));
+        }
+    }
     Ok(if failed { EXIT_FAILED } else { 0 })
 }
 

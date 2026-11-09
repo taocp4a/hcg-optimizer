@@ -4,6 +4,7 @@ A tool that shrinks large images inside ez-CGER `.hcg` files to reduce page-tran
 It is written in Rust, compiled to WASM, and served from GitHub Pages. Files never leave the browser. A CLI for development and testing uses the same core.
 
 - Usage: zip a `.hcg` file together with its same-named image folder and drop the zip in. You get back a zip with shrunk images and an inspection report.
+- Page overview: drop a zip or a single `.hcg` and download a PDF with every page's thumbnail, 6, 12 or 20 per A4 sheet.
 - Developer and agent guide: [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md)
 - Requirements: [`project/docs/REQUIREMENTS.md`](project/docs/REQUIREMENTS.md)
 - Format spec: [`project/docs/HCG_FORMAT.md`](project/docs/HCG_FORMAT.md)

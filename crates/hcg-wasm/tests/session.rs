@@ -146,3 +146,33 @@ fn bad_input_gives_messages() {
             .contains("No .hcg")
     );
 }
+
+/// Page overview (issue #19): from a zip or a bare .hcg, until optimize; settings validated.
+#[test]
+fn overview_pdf() {
+    let session = SessionCore::new(sample_zip("layered"), "").expect("session");
+    let pdf = session.overview_pdf(0, "").expect("pdf");
+    assert!(pdf.starts_with(b"%PDF-"));
+    assert!(session.overview_pdf(0, r#"{"per_sheet":20}"#).is_ok());
+    assert!(session.overview_pdf(0, r#"{"per_sheet":9}"#).is_err());
+    assert!(session.overview_pdf(0, r#"{"grid":"3x4"}"#).is_err());
+    assert!(session.overview_pdf(1, "").is_err());
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../project/samples");
+    let hcg = std::fs::read(root.join("speedtest.hcg")).expect("hcg");
+    let mut bare = SessionCore::open(hcg, "speedtest.HCG", "").expect("bare hcg");
+    let plan: serde_json::Value = serde_json::from_str(bare.plan_json()).expect("plan");
+    assert_eq!(plan["bundles"].as_array().map(Vec::len), Some(1));
+    assert!(
+        !plan["bundles"][0]["missing"]
+            .as_array()
+            .expect("missing")
+            .is_empty()
+    );
+    assert!(bare.overview_pdf(0, "").expect("pdf").starts_with(b"%PDF-"));
+    bare.optimize(&mut NoProgress).expect("optimize");
+    assert!(bare.overview_pdf(0, "").is_err(), "gone after optimize");
+
+    let zip_named = SessionCore::open(sample_zip("layered"), "layered.zip", "").expect("zip");
+    assert!(zip_named.overview_pdf(0, "").is_ok());
+}

@@ -16,7 +16,8 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
                 │                               │
                 ▼                               ▼
 ┌─ Adapters ──────────────────────────────────────────────────────────┐
-│  hcg-adapters: zip <-> file list (UTF-8/CP949), pure-Rust ImageCodec  │
+│  hcg-adapters: zip <-> file list (UTF-8/CP949), pure-Rust ImageCodec, │
+│  Overview -> PDF                                                      │
 │  (a web-specific implementation, if needed, lives in hcg-wasm and     │
 │  implements the same trait)                                           │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -24,6 +25,7 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
                                 ▼
 ┌─ Application ───────────────────────────────────────────────────────┐
 │  hcg-app: analyze(Bundle) -> Plan/Report, apply(Bundle, Plan) -> Bundle│
+│  page_overview(Bundle) -> Overview (thumbnail contact-sheet layout)   │
 │  resize policy (1920×1080, 1 MB, alpha detection), report             │
 │  ports: ImageCodec, Progress  ·  unit of work: Bundle                 │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -37,7 +39,7 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
 |---|---|---|---|
 | `hcg-format` | domain | hcg bytes <-> model, image ID | pure crates only (crc32fast, ...) |
 | `hcg-app` | application | analyze/apply, policy, report, port definitions | hcg-format |
-| `hcg-adapters` | adapters | zip <-> file list, ImageCodec implementation | hcg-app, hcg-format, zip/image/encoding_rs |
+| `hcg-adapters` | adapters | zip <-> file list, ImageCodec implementation, overview PDF | hcg-app, hcg-format, zip/image/encoding_rs/pdf-writer |
 | `hcg-cli` | frontend | arguments, file I/O, terminal progress | all of the above |
 | `hcg-wasm` | frontend | JS <-> Rust bytes, `JsError` conversion, on-page progress | all of the above + wasm-bindgen |
 
@@ -64,7 +66,7 @@ hcg-format/src/          # ✅ (issue #3)
 ├── model.rs         # HcgFile / Page / Layer / Object / SafeBmp; unchanged data kept raw
 ├── parse.rs         # §1–§6 in order, version 0x78 only
 ├── write.rs         # infallible writer, same order
-├── edit.rs          # pages(), images(), set_image_path (the only mutation)
+├── edit.rs          # pages(), images(), thumbnail(), set_image_path (the only mutation)
 └── image_id.rs      # §6.3 CRC32 ID
 
 hcg-app/src/
@@ -74,12 +76,14 @@ hcg-app/src/
 ├── policy.rs        # ✅ ResizePolicy, optimize_image, fit_within, output_file_name (issue #7)
 ├── analyze.rs       # ✅ Bundle -> BundlePlan from headers only (no decoding): files, missing, embedded, transitions (issue #9)
 ├── apply.rs         # ✅ shrink planned files, rewrite paths/IDs on extension change, re-parse verification (issue #9)
+├── overview.rs      # ✅ page_overview: thumbnail contact-sheet layout (A4 landscape, 6/12/20 per sheet) (issue #19)
 ├── report.rs        # ✅ BundleResult -> Report (structured, JSON for viewers; headline + text rendering) (issue #11)
 └── run.rs           # ✅ plan_run (preview) / execute / run: the only calls frontends make (issue #9)
 
 hcg-adapters/src/
 ├── archive.rs       # ✅ read_zip / write_zip, UTF-8/CP949 names, zip-bomb limits (issue #5)
-└── image_codec.rs   # ✅ PureRustCodec: image crate, Lanczos3, EXIF orientation kept (issue #7)
+├── image_codec.rs   # ✅ PureRustCodec: image crate, Lanczos3, EXIF orientation kept (issue #7)
+└── pdf.rs           # ✅ write_overview_pdf: Overview -> PDF, one thumbnail decoded at a time (issue #19)
 ```
 
 ### Data model principles (hcg-format)
@@ -116,6 +120,8 @@ What keeps it low:
 
 The remaining peak is reading the zip: the input zip and its inflated files coexist (≈ 2.5× input).
 
+**Page overview PDF (issue #19)** on the same 204-page project: wasm32 peak 205 MB (2.5× input, the zip read; drawing adds nothing measurable), 1.7 s for the PDF. The thumbnails are read in place from the parsed hcg and decoded one at a time; the PDF itself is small (0.8 MB for a real 133-page project, 22 MB for the photo-heavy benchmark).
+
 ## Verification strategy
 
 | Target | Method |
@@ -131,5 +137,5 @@ The remaining peak is reading the zip: the input zip and its inflated files coex
 
 - **CI (`.github/workflows/ci.yml`):** runs `preflight.sh` on every push and PR.
 - **Pages (`.github/workflows/pages.yml`):** on push to `main`, builds `dist/` with `build_web.sh`, runs the browser E2E test (`web_e2e.sh`, blocks the deploy if it fails), and deploys to GitHub Pages. Set Pages Source to "GitHub Actions" in the repository settings.
-- **Web page** (issue #17): `web/main.js` shows the page; `web/worker.js` owns a `hcg_wasm::Session` in a Web Worker, so processing never freezes the page and Cancel simply terminates the worker. Flow: choose a zip → plan preview (`report::plan_report`, no decoding) → Optimize with progress → download `<name>_optimized.zip` and view the structured reports. A Content-Security-Policy allows only the site's own files; the E2E test asserts that no request leaves the site. Data from the zip is inserted with `textContent` only.
-- **CLI** (`hcg-optimizer`, issue #15): for development and testing only; not distributed. `cargo run -p hcg-cli -- <zip or .hcg> [-o out.zip] [--dry-run] [--json] [--force] [--max-size WxH] [--max-bytes SIZE] [--quality Q] [--min-quality Q]`. It never overwrites the input, refuses an existing output without `--force`, writes through a temporary file, and exits with 0 (ok), 1 (a bundle failed / no hcg), 2 (usage), 3 (I/O).
+- **Web page** (issue #17): `web/main.js` shows the page; `web/worker.js` owns a `hcg_wasm::Session` in a Web Worker, so processing never freezes the page and Cancel simply terminates the worker. Flow: choose a zip → plan preview (`report::plan_report`, no decoding) → Optimize with progress → download `<name>_optimized.zip` and view the structured reports. From the plan, "Page overview (PDF)" downloads `<hcg name>_pages.pdf` (issue #19); a bare `.hcg` is accepted for that (the plan then lists the missing images). A Content-Security-Policy allows only the site's own files; the E2E test asserts that no request leaves the site. Data from the zip is inserted with `textContent` only.
+- **CLI** (`hcg-optimizer`, issue #15): for development and testing only; not distributed. `cargo run -p hcg-cli -- <zip or .hcg> [-o out.zip] [--dry-run] [--json] [--force] [--max-size WxH] [--max-bytes SIZE] [--quality Q] [--min-quality Q]`; `--pdf [--per-sheet 6|12|20] [-o out.pdf]` writes the page overview instead (`<hcg name>_pages.pdf` next to the input by default). It never overwrites the input, refuses an existing output without `--force`, writes through a temporary file, and exits with 0 (ok), 1 (a bundle failed / no hcg), 2 (usage), 3 (I/O).

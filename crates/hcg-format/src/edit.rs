@@ -135,6 +135,13 @@ impl HcgFile<'_> {
         })
     }
 
+    /// The page thumbnail the app stored when it saved the file (§5 hdr+2): a complete BMP file,
+    /// 384×216 32 bpp in every sample. `None` if `index` is out of range or the page has none.
+    pub fn thumbnail(&self, index: usize) -> Option<&[u8]> {
+        let range = self.pages.get(index)?.thumbnail.clone()?;
+        self.data.get(range)
+    }
+
     /// Every SafeBMP in file order: global layer first, then pages; within an object the
     /// primary image, then the image list.
     pub fn images(&self) -> Vec<ImageRef> {
