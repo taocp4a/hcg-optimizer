@@ -30,6 +30,8 @@ pub(crate) struct Page {
     pub(crate) layers: Vec<Layer>,
     /// Cue records followed by the thumbnail BMP, raw.
     pub(crate) trailer: Range<usize>,
+    /// The thumbnail BMP inside `trailer`, when the page has one (§5 hdr+2).
+    pub(crate) thumbnail: Option<Range<usize>>,
 }
 
 /// §4 Layer.

@@ -7,7 +7,7 @@
 //! - [`parse`] (borrows) / [`parse_owned`] (takes the `Vec`) bytes -> [`HcgFile`] (version 0x78
 //!   only; never panics; copies nothing large)
 //! - [`HcgFile::to_bytes`] -> bytes (byte-identical for an unmodified file)
-//! - [`HcgFile::pages`], [`HcgFile::images`] for reading
+//! - [`HcgFile::pages`], [`HcgFile::images`], [`HcgFile::thumbnail`] for reading
 //! - [`HcgFile::set_image_path`]: the only mutation
 //!
 //! Format spec: `project/docs/HCG_FORMAT.md`. Reference implementation: `project/reference/*.py`.
