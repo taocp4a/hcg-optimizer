@@ -1,0 +1,11 @@
+hcg 이미지 최적화 점검 결과
+============================
+파일: v00_empty.hcg
+결과: 처리 실패 · 확인 필요 1건
+
+[처리 실패]
+  지원하지 않는 파일 형식 버전입니다. (기술 정보: the hcg file could not be read: file header: unsupported file version 0x77 (only 0x78 is supported) at 0x8)
+  조치: ez-CGER에서 파일을 열어 다시 저장한 뒤 다시 시도하십시오.
+
+[파일 정보]
+  적용 기준: 최대 1920×1080, 파일당 1.0 MB, JPEG 화질 90부터 50까지

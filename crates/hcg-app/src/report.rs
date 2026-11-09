@@ -1,8 +1,9 @@
 //! Inspection report (issue #11): a [`BundleResult`] becomes structured data ([`Report`],
 //! serializable as JSON for a viewer). It also carries a one-line headline and a plain-text
 //! rendering (`text`) built from the same data; the output zip contains that text as
-//! `report.txt`. English for now; every warning has a stable
-//! `code` so a viewer can translate.
+//! `report.txt` (`점검결과.txt` in Korean). The human text is English or Korean
+//! ([`Language`], issue #21); codes and structure do not depend on the language, so a viewer can
+//! still translate by `code`.
 
 use serde::Serialize;
 
@@ -15,8 +16,39 @@ use crate::apply::{ApplyFailure, BundleResult, FileResult};
 use crate::policy::{ImageAction, ImageWarning, KeepReason, PlannedAction, ResizePolicy};
 use crate::ports::{ImageFormat, OutputFormat};
 
+mod ko;
+
 /// Report format version.
 pub const SCHEMA: u32 = 1;
+
+/// Language of the human text in reports (`headline`, `message`, `advice`, `text`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    #[default]
+    En,
+    /// Korean, formal: for church volunteers using the web page (issue #21).
+    Ko,
+}
+
+impl Language {
+    /// `en` or `ko`.
+    pub fn from_code(code: &str) -> Option<Self> {
+        match code {
+            "en" => Some(Language::En),
+            "ko" => Some(Language::Ko),
+            _ => None,
+        }
+    }
+
+    /// Name of the rendered report in the output zip.
+    pub fn report_file_name(self) -> &'static str {
+        match self {
+            Language::En => "report.txt",
+            Language::Ko => "점검결과.txt",
+        }
+    }
+}
 
 /// Files in the input that belong to no bundle.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -28,6 +60,8 @@ pub struct RunNotes {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Report {
     pub schema: u32,
+    /// Language of the human text.
+    pub language: Language,
     pub tool: ToolInfo,
     pub bundle: BundleInfo,
     pub status: Status,
@@ -204,38 +238,38 @@ pub struct Warning {
     pub file: Option<String>,
 }
 
-/// Builds the report for one bundle. Pure and deterministic.
+/// Builds the English report for one bundle. Pure and deterministic.
 pub fn build_report(result: &BundleResult, run: &RunNotes, policy: &ResizePolicy) -> Report {
+    build_report_in(result, run, policy, Language::En)
+}
+
+/// Builds the report for one bundle with its human text in `language`.
+pub fn build_report_in(
+    result: &BundleResult,
+    run: &RunNotes,
+    policy: &ResizePolicy,
+    language: Language,
+) -> Report {
     let plan = &result.plan;
     let mut warnings = Vec::new();
 
-    let failure = result.failure.as_ref().map(|f| {
-        let (code, advice) = failure_code_and_advice(f);
-        let message = sentence(&f.to_string());
-        warnings.push(Warning {
-            code: code.into(),
-            message: message.clone(),
-            file: None,
-        });
-        Failure {
-            code: code.into(),
-            message,
-            advice: advice.into(),
-        }
-    });
+    let failure = result
+        .failure
+        .as_ref()
+        .map(|f| failure_entry(f, language, &mut warnings));
 
     let images: Vec<ImageEntry> = plan
         .files
         .iter()
         .map(|file| {
             let done = result.files.iter().find(|r| r.name == file.name);
-            image_entry(file, done, &mut warnings)
+            image_entry(file, done, &mut warnings, language)
         })
         .collect();
 
-    let missing = missing_entries(plan, &mut warnings);
+    let missing = missing_entries(plan, &mut warnings, language);
     let embedded = embedded_entries(plan);
-    let transitions = transition_entries(plan, &mut warnings);
+    let transitions = transition_entries(plan, &mut warnings, language);
 
     let images_shrunk = images.iter().filter(|i| i.action == Action::Shrunk).count();
     let images_renamed = images.iter().filter(|i| i.renamed_to.is_some()).count();
@@ -244,17 +278,28 @@ pub fn build_report(result: &BundleResult, run: &RunNotes, policy: &ResizePolicy
         .iter()
         .map(|i| i.after.as_ref().map_or(i.before.bytes, |a| a.bytes))
         .sum();
-    let headline = headline(
-        failure.is_some(),
-        images.len(),
-        images_shrunk,
-        bytes_before,
-        bytes_after,
-        warnings.len(),
-    );
+    let headline = match language {
+        Language::En => headline(
+            failure.is_some(),
+            images.len(),
+            images_shrunk,
+            bytes_before,
+            bytes_after,
+            warnings.len(),
+        ),
+        Language::Ko => ko::headline(
+            failure.is_some(),
+            images.len(),
+            images_shrunk,
+            bytes_before,
+            bytes_after,
+            warnings.len(),
+        ),
+    };
 
     let mut report = Report {
         schema: SCHEMA,
+        language,
         tool: ToolInfo {
             name: "hcg-optimizer".into(),
             version: env!("CARGO_PKG_VERSION").into(),
@@ -307,8 +352,35 @@ pub fn build_report(result: &BundleResult, run: &RunNotes, policy: &ResizePolicy
     report
 }
 
+/// The failure entry for `f`, also recorded as a warning.
+fn failure_entry(f: &ApplyFailure, language: Language, warnings: &mut Vec<Warning>) -> Failure {
+    let (code, advice) = failure_code_and_advice(f);
+    let detail = f.to_string();
+    let (message, advice) = match language {
+        Language::En => (sentence(&detail), advice.to_string()),
+        Language::Ko => (
+            ko::failure_message(code, &detail),
+            ko::advice(code).to_string(),
+        ),
+    };
+    warnings.push(Warning {
+        code: code.into(),
+        message: message.clone(),
+        file: None,
+    });
+    Failure {
+        code: code.into(),
+        message,
+        advice,
+    }
+}
+
 /// Missing references grouped by path, each with a `missing_image` warning.
-fn missing_entries(plan: &BundlePlan, warnings: &mut Vec<Warning>) -> Vec<MissingEntry> {
+fn missing_entries(
+    plan: &BundlePlan,
+    warnings: &mut Vec<Warning>,
+    language: Language,
+) -> Vec<MissingEntry> {
     let mut missing: Vec<MissingEntry> = Vec::new();
     for image in &plan.missing {
         let path = path_of(image);
@@ -322,14 +394,18 @@ fn missing_entries(plan: &BundlePlan, warnings: &mut Vec<Warning>) -> Vec<Missin
         }
     }
     for entry in &missing {
-        warnings.push(Warning {
-            code: "missing_image".into(),
-            message: format!(
+        let message = match language {
+            Language::En => format!(
                 "{} ({}) is not in the image folder. ez-CGER can still show it only on a PC \
                  where that path exists.",
                 entry.path,
                 places(&entry.used_on)
             ),
+            Language::Ko => ko::missing(&entry.path, &entry.used_on),
+        };
+        warnings.push(Warning {
+            code: "missing_image".into(),
+            message,
             file: entry.expected_file.clone(),
         });
     }
@@ -355,7 +431,11 @@ fn embedded_entries(plan: &BundlePlan) -> Vec<EmbeddedEntry> {
 }
 
 /// Non-CUT transitions, each with a `transition_not_cut` warning.
-fn transition_entries(plan: &BundlePlan, warnings: &mut Vec<Warning>) -> Vec<TransitionEntry> {
+fn transition_entries(
+    plan: &BundlePlan,
+    warnings: &mut Vec<Warning>,
+    language: Language,
+) -> Vec<TransitionEntry> {
     let transitions: Vec<TransitionEntry> = plan
         .transitions
         .iter()
@@ -370,15 +450,19 @@ fn transition_entries(plan: &BundlePlan, warnings: &mut Vec<Warning>) -> Vec<Tra
         })
         .collect();
     for t in &transitions {
-        warnings.push(Warning {
-            code: "transition_not_cut".into(),
-            message: format!(
+        let message = match language {
+            Language::En => format!(
                 "Page {} uses a {} transition ({}). On a slow PC transitions take longer than set; \
                  CUT avoids the delay.",
                 t.page,
                 transition_label(&t.kind),
                 seconds(t.duration_ms)
             ),
+            Language::Ko => ko::transition(t.page, &t.kind, t.duration_ms),
+        };
+        warnings.push(Warning {
+            code: "transition_not_cut".into(),
+            message,
             file: None,
         });
     }
@@ -396,6 +480,7 @@ fn image_entry(
     file: &crate::analyze::FilePlan,
     done: Option<&FileResult>,
     warnings: &mut Vec<Warning>,
+    language: Language,
 ) -> ImageEntry {
     let path = file.refs.first().map(path_of).unwrap_or_default();
     let before = ImageInfo {
@@ -450,7 +535,7 @@ fn image_entry(
         .map_or(entry.file.clone(), |r| r.file.clone());
     if let Some(reason) = &keep_reason {
         entry.reason = Some(reason_code(reason).into());
-        if let Some((code, message)) = reason_warning(reason, &shown) {
+        if let Some((code, message)) = reason_warning(reason, &shown, language) {
             warnings.push(Warning {
                 code: code.into(),
                 message,
@@ -462,18 +547,23 @@ fn image_entry(
         .map(|d| d.outcome.warnings.as_slice())
         .unwrap_or_default();
     for ImageWarning::OverSizeLimit { bytes, limit } in image_warnings {
-        warnings.push(Warning {
-            code: "over_size_limit".into(),
-            message: format!(
+        let shrunk = entry.action == Action::Shrunk;
+        let message = match language {
+            Language::En => format!(
                 "{shown} is still {} (limit {}){}.",
                 human_size(*bytes),
                 human_size(*limit),
-                if entry.action == Action::Shrunk {
+                if shrunk {
                     " even at the lowest JPEG quality"
                 } else {
                     ""
                 }
             ),
+            Language::Ko => ko::over_size(&shown, *bytes, *limit, shrunk),
+        };
+        warnings.push(Warning {
+            code: "over_size_limit".into(),
+            message,
             file: Some(shown.clone()),
         });
     }
@@ -523,7 +613,14 @@ fn reason_text(reason: &str) -> &'static str {
     }
 }
 
-fn reason_warning(reason: &KeepReason, file: &str) -> Option<(&'static str, String)> {
+fn reason_warning(
+    reason: &KeepReason,
+    file: &str,
+    language: Language,
+) -> Option<(&'static str, String)> {
+    if language == Language::Ko {
+        return ko::reason_warning(reason, file);
+    }
     match reason {
         KeepReason::NotSupportedByApp(format) => Some((
             "not_supported_by_app",
@@ -695,8 +792,15 @@ fn headline(
     )
 }
 
-/// Plain-text rendering of a report (everything except `text` itself).
+/// Plain-text rendering of a report (everything except `text` itself), in its language.
 pub fn render_text(r: &Report) -> String {
+    match r.language {
+        Language::En => render_text_en(r),
+        Language::Ko => ko::render_text(r),
+    }
+}
+
+fn render_text_en(r: &Report) -> String {
     let mut out = Vec::new();
     let title = format!("hcg-optimizer report: {}", r.bundle.hcg_path);
     out.push(title.clone());
@@ -823,6 +927,8 @@ fn image_line(i: &ImageInfo) -> String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PlanReport {
     pub schema: u32,
+    /// Language of the human text.
+    pub language: Language,
     pub summary: PlanSummary,
     pub bundles: Vec<BundlePreview>,
     pub other_files: OtherFiles,
@@ -882,12 +988,17 @@ pub struct PlannedFile {
     pub reason: Option<String>,
 }
 
-/// Builds the preview of a run plan. Pure and deterministic.
+/// Builds the English preview of a run plan. Pure and deterministic.
 pub fn plan_report(plan: &crate::run::RunPlan) -> PlanReport {
+    plan_report_in(plan, Language::En)
+}
+
+/// Builds the preview of a run plan with its human text in `language`.
+pub fn plan_report_in(plan: &crate::run::RunPlan, language: Language) -> PlanReport {
     let bundles: Vec<BundlePreview> = plan
         .bundles
         .iter()
-        .map(|(_, p)| bundle_preview(p))
+        .map(|(_, p)| bundle_preview(p, language))
         .collect();
     let files = || bundles.iter().flat_map(|b| b.files.iter());
     let files_total = files().count();
@@ -906,7 +1017,16 @@ pub fn plan_report(plan: &crate::run::RunPlan) -> PlanReport {
         n => format!("{n} warnings."),
     };
     let noun = if files_total == 1 { "image" } else { "images" };
-    let headline = if bundles.is_empty() {
+    let headline = if language == Language::Ko {
+        ko::plan_headline(
+            bundles.is_empty(),
+            nothing_to_do,
+            files_total,
+            files_to_shrink,
+            bytes_to_shrink,
+            warnings,
+        )
+    } else if bundles.is_empty() {
         "No .hcg file found in the zip.".to_string()
     } else if nothing_to_do {
         format!("The .hcg file could not be read. {warn}")
@@ -921,6 +1041,7 @@ pub fn plan_report(plan: &crate::run::RunPlan) -> PlanReport {
 
     PlanReport {
         schema: SCHEMA,
+        language,
         summary: PlanSummary {
             headline,
             bundles: bundles.len(),
@@ -939,23 +1060,13 @@ pub fn plan_report(plan: &crate::run::RunPlan) -> PlanReport {
     }
 }
 
-fn bundle_preview(plan: &BundlePlan) -> BundlePreview {
+fn bundle_preview(plan: &BundlePlan, language: Language) -> BundlePreview {
     let mut warnings = Vec::new();
-    let failure = plan.hcg.as_ref().err().map(|e| {
-        let failure = ApplyFailure::Parse(e.clone());
-        let (code, advice) = failure_code_and_advice(&failure);
-        let message = sentence(&failure.to_string());
-        warnings.push(Warning {
-            code: code.into(),
-            message: message.clone(),
-            file: None,
-        });
-        Failure {
-            code: code.into(),
-            message,
-            advice: advice.into(),
-        }
-    });
+    let failure = plan
+        .hcg
+        .as_ref()
+        .err()
+        .map(|e| failure_entry(&ApplyFailure::Parse(e.clone()), language, &mut warnings));
     let files = plan
         .files
         .iter()
@@ -972,7 +1083,7 @@ fn bundle_preview(plan: &BundlePlan) -> BundlePreview {
                     None,
                 ),
                 PlannedAction::Keep(reason) => {
-                    if let Some((code, message)) = reason_warning(reason, &f.name) {
+                    if let Some((code, message)) = reason_warning(reason, &f.name, language) {
                         warnings.push(Warning {
                             code: code.into(),
                             message,
@@ -1003,9 +1114,9 @@ fn bundle_preview(plan: &BundlePlan) -> BundlePreview {
             }
         })
         .collect();
-    let missing = missing_entries(plan, &mut warnings);
+    let missing = missing_entries(plan, &mut warnings, language);
     let embedded = embedded_entries(plan);
-    let transitions = transition_entries(plan, &mut warnings);
+    let transitions = transition_entries(plan, &mut warnings, language);
     BundlePreview {
         bundle: BundleInfo {
             stem: plan.stem.clone(),

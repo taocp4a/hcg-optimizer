@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "language": "en",
   "tool": {
     "name": "hcg-optimizer",
     "version": "0.1.0"

@@ -11,7 +11,7 @@ use hcg_app::apply::{BundleResult, apply};
 use hcg_app::package::{InputFile, NameEncoding};
 use hcg_app::policy::{KeepReason, PlannedAction, ResizePolicy};
 use hcg_app::ports::{ImageFormat, ImageProbe, NoProgress};
-use hcg_app::report::{RunNotes, Status, build_report, to_json};
+use hcg_app::report::{Language, RunNotes, Status, build_report, build_report_in, to_json};
 use hcg_app::run::run;
 use hcg_format::parse;
 
@@ -150,6 +150,45 @@ fn report_with_every_item_kind() {
     check_snapshot("every_kind.txt", &report.text);
 }
 
+/// Issue #21: the Korean report has the same data and codes, only the human text differs; the
+/// text puts the result and the items to check first.
+#[test]
+fn korean_report() {
+    let (result, notes) = every_kind();
+    let en = build_report(&result, &notes, &policy());
+    let ko = build_report_in(&result, &notes, &policy(), Language::Ko);
+    assert_eq!(ko.language, Language::Ko);
+    assert_eq!(
+        (
+            &ko.images,
+            &ko.missing,
+            &ko.transitions,
+            &ko.summary.images_shrunk
+        ),
+        (
+            &en.images,
+            &en.missing,
+            &en.transitions,
+            &en.summary.images_shrunk
+        )
+    );
+    let codes = |r: &hcg_app::report::Report| -> Vec<String> {
+        r.warnings.iter().map(|w| w.code.clone()).collect()
+    };
+    assert_eq!(codes(&ko), codes(&en));
+    assert!(
+        ko.summary.headline.starts_with("이미지 2개 축소"),
+        "{}",
+        ko.summary.headline
+    );
+    let check = ko.text.find("[확인 필요").expect("items to check");
+    let images = ko.text.find("[이미지]").expect("image list");
+    assert!(check < images, "items to check come before the details");
+    assert!(ko.warnings.iter().all(|w| !w.message.is_ascii()));
+    check_snapshot("every_kind_ko.json", &to_json(&ko));
+    check_snapshot("every_kind_ko.txt", &ko.text);
+}
+
 /// R5: an unsupported version gives a failed report with advice.
 #[test]
 fn failed_bundle_report() {
@@ -175,6 +214,15 @@ fn failed_bundle_report() {
     assert!(report.hcg.is_none());
     check_snapshot("failed.json", &to_json(&report));
     check_snapshot("failed.txt", &report.text);
+    let ko = build_report_in(&result, &RunNotes::default(), &policy, Language::Ko);
+    assert!(
+        ko.failure
+            .as_ref()
+            .expect("failure")
+            .advice
+            .contains("다시 저장")
+    );
+    check_snapshot("failed_ko.txt", &ko.text);
 }
 
 /// R2: the same result gives byte-identical JSON.

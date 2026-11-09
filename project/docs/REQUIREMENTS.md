@@ -35,6 +35,11 @@ ez-CGER's image-open dialog accepts exactly six formats: PNG, JPG/JPEG, BMP, TGA
 - Pages whose transition is not CUT (transitions can take much longer on slow PCs)
 - Warnings for unreadable blocks or a different format version
 
+## Web page language and layout (issue #21)
+- The users are church volunteers, not engineers. The web page and its report are Korean, formal and concise (합니다체; instructions in 하십시오체; no emoji or casual tone). The CLI stays English.
+- Conclusion and actions first on every screen: purpose and file drop first; after a file is chosen, a one-line summary and two equal action cards, "이미지 최적화" and "페이지 PDF 출력"; then the items to check, each with what to do. Image lists, settings and the full report are collapsed.
+- With nothing to shrink (e.g. a bare `.hcg`), the optimize card says why and is disabled; the PDF card still works, also after optimizing.
+
 ## Page overview PDF (issue #19)
 - From the same input (or a single `.hcg` without its image folder), make a PDF that shows every page as the thumbnail the app stored in the hcg, several per sheet, so the service flow can be checked and shared without ez-CGER. Available in the CLI (`--pdf`) and on the web page.
 - A4 landscape; 6, 12 (default) or 20 thumbnails per sheet; page numbers under each thumbnail; blank pages kept so the numbering matches the app.

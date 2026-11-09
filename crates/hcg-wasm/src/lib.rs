@@ -38,7 +38,7 @@ impl Session {
 
     /// The page overview PDF of the `index`-th hcg; `settings_json` like `{"per_sheet":12}`.
     #[wasm_bindgen(js_name = overviewPdf)]
-    pub fn overview_pdf(&self, index: usize, settings_json: &str) -> Result<Vec<u8>, JsError> {
+    pub fn overview_pdf(&mut self, index: usize, settings_json: &str) -> Result<Vec<u8>, JsError> {
         self.0
             .overview_pdf(index, settings_json)
             .map_err(|e| JsError::new(&e))

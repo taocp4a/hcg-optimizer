@@ -34,7 +34,7 @@ SAVED=$(echo "$RESULT" | sed -n 's/^SAVED //p')
 python3 -I - "$SAVED" <<'PY'
 import sys, zipfile
 names = zipfile.ZipFile(sys.argv[1]).namelist()
-for expected in ["speedtest_optimized/speedtest.hcg", "speedtest_optimized/report.txt",
+for expected in ["speedtest_optimized/speedtest.hcg", "speedtest_optimized/점검결과.txt",
                  "speedtest_optimized/speedtest/3F8B560Bbg_1080_noise.jpg"]:
     assert expected in names, f"{expected} missing from {names}"
 print(f"ok: downloaded zip has the expected layout ({len(names)} files)")

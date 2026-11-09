@@ -3,8 +3,8 @@
 
 use hcg_adapters::archive::{ZipLimits, read_zip, write_zip};
 use hcg_adapters::image_codec::PureRustCodec;
-use hcg_adapters::pdf::write_overview_pdf;
-use hcg_app::overview::{OverviewSettings, page_overview};
+use hcg_adapters::pdf::{Thumbnails, overview_pdf};
+use hcg_app::overview::OverviewSettings;
 use hcg_app::package::pair_bundles;
 use hcg_app::policy::ResizePolicy;
 use hcg_app::ports::NoProgress;
@@ -71,9 +71,10 @@ pub fn overview(zip: Vec<u8>, now: &dyn Fn() -> f64) -> String {
     let mut pages = 0;
     let mut pdf_len = 0;
     for bundle in &bundles {
-        let overview = page_overview(bundle, &OverviewSettings::default()).expect("overview");
-        pages += overview.page_count;
-        pdf_len += write_overview_pdf(&overview).bytes.len();
+        let thumbnails = Thumbnails::from_bundle(bundle).expect("thumbnails");
+        let pdf = overview_pdf(&thumbnails, &OverviewSettings::default());
+        pages += pdf.page_count;
+        pdf_len += pdf.bytes.len();
     }
     let m2 = mem();
     let t2 = now();

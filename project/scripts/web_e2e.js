@@ -1,7 +1,8 @@
 // Browser end-to-end test of the web page (issue #17), run by web_e2e.sh.
 //   node web_e2e.js <site-url> <input.zip> <out-dir> <bare.hcg>
-// Checks: plan shown, page overview PDF (zip and bare .hcg), optimize, download, report viewer,
-// cancel, and no request leaves the site (W1).
+// Checks (Korean page, issue #21): summary and two action cards, page PDF before and after
+// optimizing and from a bare .hcg, cancel, optimize, download, Korean report, and no request
+// leaves the site (W1).
 const { chromium } = require("playwright");
 const path = require("path");
 
@@ -26,52 +27,64 @@ function check(cond, message) {
   await page.waitForFunction(() => document.getElementById("ver").textContent !== "…");
   check(true, `page loads, core ${await page.textContent("#ver")}`);
 
-  // Plan.
+  // File chosen: summary line, two equal cards, image list (issue #21).
+  const pdfDownload = async (label) => {
+    const [d] = await Promise.all([page.waitForEvent("download"), page.click("#pdf")]);
+    const saved = path.join(outDir, d.suggestedFilename());
+    await d.saveAs(saved);
+    const head = require("fs").readFileSync(saved).subarray(0, 5).toString();
+    check(/_pages\.pdf$/.test(saved) && head === "%PDF-", `${label}: ${path.basename(saved)}`);
+  };
   await page.setInputFiles("#file", input);
-  await page.waitForSelector("#plan:not([hidden])", { timeout: 60000 });
-  const planHeadline = await page.textContent("#plan-headline");
-  check(/will be shrunk/.test(planHeadline), `plan shown: "${planHeadline}"`);
-  check((await page.locator("#plan-body tbody tr").count()) > 0, "plan lists the images");
-  check(!(await page.locator("#plan-body").innerText()).includes("[object"), "no stray object text in the plan");
+  await page.waitForSelector("#work:not([hidden])", { timeout: 60000 });
+  const summary = await page.textContent("#summary");
+  check(/축소 대상 이미지 2개/.test(summary), `summary line: "${summary}"`);
+  check(await page.isVisible("#opt-card") && await page.isVisible("#pdf-card"), "both action cards shown");
+  check(await page.isEnabled("#optimize"), "optimize enabled");
+  check((await page.locator("#opt-list tbody tr").count()) > 0, "image list present");
+  check(!(await page.locator("#work").innerText()).includes("[object"), "no stray object text");
   await page.screenshot({ path: path.join(outDir, "plan.png"), fullPage: true });
 
-  // Page overview PDF (issue #19), without leaving the plan.
+  // Page PDF before optimizing (issue #19).
   await page.selectOption("#per-sheet", "6");
-  const [pdfDownload] = await Promise.all([page.waitForEvent("download"), page.click("button.overview")]);
-  const pdfPath = path.join(outDir, pdfDownload.suggestedFilename());
-  await pdfDownload.saveAs(pdfPath);
-  const pdfHead = require("fs").readFileSync(pdfPath).subarray(0, 5).toString();
-  check(/_pages\.pdf$/.test(pdfPath) && pdfHead === "%PDF-", `page overview downloaded: ${path.basename(pdfPath)}`);
-  check(await page.locator("#plan").isVisible(), "plan stays after the overview");
+  check(/A4 1장/.test(await page.textContent("#pdf-summary")), "sheet count follows the select");
+  await pdfDownload("page PDF before optimizing");
 
-  // Cancel, then the same file is planned again.
+  // Cancel returns to the ready state of the same file.
   await page.click("#optimize");
-  await page.waitForSelector("#progress:not([hidden])");
+  await page.waitForSelector("#opt-running:not([hidden])");
   await page.click("#cancel");
-  await page.waitForSelector("#plan:not([hidden])", { timeout: 60000 });
-  check(true, "cancel returns to the plan");
+  await page.waitForSelector("#opt-ready:not([hidden])", { timeout: 60000 });
+  check(await page.isVisible("#work"), "cancel returns to the cards");
 
   // Optimize and download.
   await page.click("#optimize");
-  await page.waitForSelector("#result:not([hidden])", { timeout: 180000 });
-  const headline = await page.textContent("#reports .headline");
-  check(/images shrunk/.test(headline), `report shown: "${headline}"`);
+  await page.waitForSelector("#opt-done:not([hidden])", { timeout: 180000 });
+  const headline = await page.textContent("#result-headline");
+  check(/^최적화 완료 — 이미지 2개 축소/.test(headline), `result shown: "${headline}"`);
   const [download] = await Promise.all([page.waitForEvent("download"), page.click("#download")]);
   const saved = path.join(outDir, download.suggestedFilename());
   await download.saveAs(saved);
   check(/_optimized\.zip$/.test(saved), `downloaded ${path.basename(saved)}`);
+  await page.click("#details summary");
+  check(/hcg 이미지 최적화 점검 결과/.test(await page.textContent("#reports")), "detailed report in Korean");
   await page.screenshot({ path: path.join(outDir, "result.png"), fullPage: true });
 
-  // A bare .hcg (no image folder) still gives a plan and a page overview.
+  // The PDF still works after optimizing (issue #21).
+  await pdfDownload("page PDF after optimizing");
+
+  // A bare .hcg: optimize explains why it is disabled, the PDF works, the missing folder is listed.
   await page.setInputFiles("#file", bareHcg);
-  await page.waitForSelector("#plan:not([hidden])", { timeout: 60000 });
-  check(/not in the image folder/.test(await page.innerText("#plan-body")), "bare .hcg plan reports the missing images");
-  const [hcgPdf] = await Promise.all([page.waitForEvent("download"), page.click("button.overview")]);
-  check(/_pages\.pdf$/.test(hcgPdf.suggestedFilename()), `bare .hcg gives ${hcgPdf.suggestedFilename()}`);
+  await page.waitForSelector("#opt-ready:not([hidden]) #opt-note:not([hidden])", { timeout: 60000 });
+  check(!(await page.isEnabled("#optimize")), "bare .hcg: optimize disabled");
+  check(/이미지 폴더가 함께 들어 있지 않습니다/.test(await page.textContent("#opt-note")), "bare .hcg: reason shown");
+  check(/함께 압축하여 다시 선택하십시오/.test(await page.textContent("#check-list")), "bare .hcg: action first");
+  await page.screenshot({ path: path.join(outDir, "bare_hcg.png"), fullPage: true });
+  await pdfDownload("bare .hcg page PDF");
 
   // Wrong file type gives a message, not a blank page.
   await page.setInputFiles("#file", { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("x") });
-  check(/choose a \.zip/i.test(await page.textContent("#error")), "non-zip input shows a message");
+  check(/zip 파일/.test(await page.textContent("#error")), "wrong file type shows a message");
 
   check(foreign.length === 0, `no request leaves the site (${foreign.join(", ") || "none"})`);
   check(errors.length === 0, `no page errors (${errors.join(" | ") || "none"})`);

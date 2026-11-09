@@ -1,6 +1,8 @@
 //! Page overview (issue #19): every page of an hcg as a contact sheet built from the page
-//! thumbnails the app stores in the file. This module only lays the sheets out; an adapter draws
-//! them (`hcg-adapters::pdf`). No image folder is needed.
+//! thumbnails the app stores in the file. This module reads the thumbnails ([`read_pages`]) and
+//! lays the sheets out ([`layout`]); an adapter draws them (`hcg-adapters::pdf`). The two are
+//! separate so a frontend can keep prepared thumbnails and lay them out again with other
+//! settings after the hcg itself is gone (issue #21). No image folder is needed.
 //!
 //! Units are PDF points (1/72 inch) with the origin at the **top-left** of the sheet.
 
@@ -95,10 +97,9 @@ pub struct Sheet {
     pub cells: Vec<Cell>,
 }
 
-/// The laid-out overview of one hcg. Thumbnails stay inside the parsed file (nothing copied);
-/// get them with [`Overview::thumbnail`].
-#[derive(Debug)]
-pub struct Overview<'a> {
+/// The laid-out sheets of one hcg (no image data).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Overview {
     /// The hcg stem (may contain any characters); for document metadata.
     pub title: String,
     /// Suggested output file name: `<stem>_pages.pdf`.
@@ -107,12 +108,21 @@ pub struct Overview<'a> {
     pub paper: (f32, f32),
     pub page_count: usize,
     pub sheets: Vec<Sheet>,
-    /// 1-based numbers of pages saved without a thumbnail; their cells stay empty.
-    pub pages_without_thumbnail: Vec<usize>,
+}
+
+/// The pages of one hcg as the overview needs them. Thumbnails stay inside the parsed file
+/// (nothing copied); get them with [`Pages::thumbnail`].
+#[derive(Debug)]
+pub struct Pages<'a> {
+    /// The hcg stem.
+    pub title: String,
+    pub page_count: usize,
+    /// Width / height of the first page (frame shape on the sheets).
+    pub aspect: f32,
     file: HcgFile<'a>,
 }
 
-impl Overview<'_> {
+impl Pages<'_> {
     /// The thumbnail BMP of a 1-based page number, as stored by the app.
     pub fn thumbnail(&self, page: usize) -> Option<&[u8]> {
         self.file.thumbnail(page.checked_sub(1)?)
@@ -124,25 +134,36 @@ pub fn overview_file_name(stem: &str) -> String {
     format!("{stem}_pages.pdf")
 }
 
-/// Lays out the pages of `bundle`'s hcg. Fails only if the hcg cannot be read.
-pub fn page_overview<'a>(
-    bundle: &'a Bundle,
-    settings: &OverviewSettings,
-) -> Result<Overview<'a>, ParseError> {
+/// Reads the pages of `bundle`'s hcg. Fails only if the hcg cannot be read.
+pub fn read_pages(bundle: &Bundle) -> Result<Pages<'_>, ParseError> {
     let file = parse(&bundle.hcg)?;
-    let page_count = file.page_count();
     let aspect = file
         .pages()
         .next()
         .filter(|p| p.width > 0 && p.height > 0)
         .map_or(DEFAULT_ASPECT, |p| p.width as f32 / p.height as f32);
-    let pages_without_thumbnail = (0..page_count)
-        .filter(|&i| file.thumbnail(i).is_none())
-        .map(|i| i + 1)
-        .collect();
+    Ok(Pages {
+        title: bundle.stem.clone(),
+        page_count: file.page_count(),
+        aspect,
+        file,
+    })
+}
 
+/// Lays out `page_count` pages of frame shape `aspect` (width / height) for the hcg `title`.
+pub fn layout(
+    title: &str,
+    page_count: usize,
+    aspect: f32,
+    settings: &OverviewSettings,
+) -> Overview {
+    let aspect = if aspect.is_finite() && aspect > 0.0 {
+        aspect
+    } else {
+        DEFAULT_ASPECT
+    };
     let paper = A4_LANDSCAPE;
-    let title_suffix = ascii_title(&bundle.stem)
+    let title_suffix = ascii_title(title)
         .map(|t| format!("  -  {t}"))
         .unwrap_or_default();
     let per_sheet = settings.per_sheet.count();
@@ -182,16 +203,13 @@ pub fn page_overview<'a>(
             })
             .collect()
     };
-
-    Ok(Overview {
-        title: bundle.stem.clone(),
-        file_name: overview_file_name(&bundle.stem),
+    Overview {
+        title: title.to_string(),
+        file_name: overview_file_name(title),
         paper,
         page_count,
         sheets,
-        pages_without_thumbnail,
-        file,
-    })
+    }
 }
 
 /// The stem for the visible header, only if it is printable ASCII.
