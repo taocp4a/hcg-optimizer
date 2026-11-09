@@ -2,13 +2,13 @@
 
 The inspection report is built as **structured data** (`hcg_app::report::Report`, issue #11) and serialized as JSON for viewers: the web page gets it from `RunResult::reports` / `report::to_json`. The data carries `summary.headline` (one sentence) and `text` (the whole report as plain text, built from the same fields).
 
-**In the output zip**, each bundle folder holds only the rendered text: `<stem>_optimized/report.txt`, written as UTF-8 with a byte-order mark and CRLF line endings so every version of Windows Notepad shows it correctly. No JSON goes into the zip.
+**In the output zip**, each bundle folder holds only the rendered text: `<stem>_optimized/report.txt` (Korean: `점검결과.txt`), written as UTF-8 with a byte-order mark and CRLF line endings so every version of Windows Notepad shows it correctly. No JSON goes into the zip.
 
 Conventions:
 - Field names and enum values are `snake_case`. New fields may be added within schema 1; removing or renaming one bumps `schema`.
 - Sizes are integers in bytes and pixels; the viewer formats units. Human text (`headline`, `message`, `text`) uses binary units (1 MB = 1,048,576 bytes).
 - Positions are **1-based** as users see them: `page`, `layer`, `object`, `frame`. `page: null` means the background (global) layer.
-- English only for now. Every warning has a stable `code`, so a viewer can translate by code and fall back to `message`.
+- **Language** (issue #21): the human text (`headline`, `message`, `advice`, `text`) is English (`build_report`, the CLI) or Korean (`build_report_in(…, Language::Ko)`, the web page). Codes, numbers and structure are the same in both, so a viewer can still translate by `code`. The Korean `text` lists the items to check before the image details, and shows pages only ("1, 20, 38페이지"); in the output zip it is named `점검결과.txt`.
 
 Complete examples: `crates/hcg-app/tests/snapshots/every_kind.json` (every item kind) and `failed.json`.
 
@@ -17,6 +17,7 @@ Complete examples: `crates/hcg-app/tests/snapshots/every_kind.json` (every item 
 | Field | Type | Meaning |
 |---|---|---|
 | `schema` | integer | `1` |
+| `language` | string | `en` or `ko`: language of the human text |
 | `tool` | object | `name` (`"hcg-optimizer"`), `version` |
 | `bundle` | object | `stem`, `hcg_path` (where the hcg was in the input zip), `folder_path` (image folder in the input, or `null`) |
 | `status` | string | `ok` or `failed` |
@@ -97,7 +98,7 @@ Complete examples: `crates/hcg-app/tests/snapshots/every_kind.json` (every item 
 
 ## `warnings[]`
 
-Each warning: `code`, `message` (English sentence), `file` (folder file or path concerned, or null).
+Each warning: `code`, `message` (a sentence in the report's language), `file` (folder file or path concerned, or null).
 
 | `code` | When |
 |---|---|
@@ -114,7 +115,7 @@ Each warning: `code`, `message` (English sentence), `file` (folder file or path 
 
 ## Plan preview (`plan_report`)
 
-Before any image is decoded, the web page shows `hcg_app::report::plan_report(&RunPlan)` (also schema 1):
+Before any image is decoded, the web page shows `hcg_app::report::plan_report_in(&RunPlan, Language::Ko)` (also schema 1, with `language`):
 
 | Field | Meaning |
 |---|---|

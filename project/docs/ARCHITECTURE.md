@@ -25,7 +25,7 @@ Current frontends: **WASM (web, for users)** and **CLI (development and testing)
                                 ▼
 ┌─ Application ───────────────────────────────────────────────────────┐
 │  hcg-app: analyze(Bundle) -> Plan/Report, apply(Bundle, Plan) -> Bundle│
-│  page_overview(Bundle) -> Overview (thumbnail contact-sheet layout)   │
+│  read_pages(Bundle) / layout(...) -> Overview (thumbnail contact sheet)│
 │  resize policy (1920×1080, 1 MB, alpha detection), report             │
 │  ports: ImageCodec, Progress  ·  unit of work: Bundle                 │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -76,14 +76,14 @@ hcg-app/src/
 ├── policy.rs        # ✅ ResizePolicy, optimize_image, fit_within, output_file_name (issue #7)
 ├── analyze.rs       # ✅ Bundle -> BundlePlan from headers only (no decoding): files, missing, embedded, transitions (issue #9)
 ├── apply.rs         # ✅ shrink planned files, rewrite paths/IDs on extension change, re-parse verification (issue #9)
-├── overview.rs      # ✅ page_overview: thumbnail contact-sheet layout (A4 landscape, 6/12/20 per sheet) (issue #19)
-├── report.rs        # ✅ BundleResult -> Report (structured, JSON for viewers; headline + text rendering) (issue #11)
+├── overview.rs      # ✅ read_pages + layout: thumbnail contact sheet (A4 landscape, 6/12/20 per sheet) (issues #19, #21)
+├── report.rs        # ✅ BundleResult -> Report (structured, JSON for viewers; headline + text rendering; English or Korean text, `report/ko.rs`) (issues #11, #21)
 └── run.rs           # ✅ plan_run (preview) / execute / run: the only calls frontends make (issue #9)
 
 hcg-adapters/src/
 ├── archive.rs       # ✅ read_zip / write_zip, UTF-8/CP949 names, zip-bomb limits (issue #5)
 ├── image_codec.rs   # ✅ PureRustCodec: image crate, Lanczos3, EXIF orientation kept (issue #7)
-└── pdf.rs           # ✅ write_overview_pdf: Overview -> PDF, one thumbnail decoded at a time (issue #19)
+└── pdf.rs           # ✅ Thumbnails (decoded + deflated, kept small) and overview_pdf: Overview -> PDF (issues #19, #21)
 ```
 
 ### Data model principles (hcg-format)
@@ -137,5 +137,5 @@ The remaining peak is reading the zip: the input zip and its inflated files coex
 
 - **CI (`.github/workflows/ci.yml`):** runs `preflight.sh` on every push and PR.
 - **Pages (`.github/workflows/pages.yml`):** on push to `main`, builds `dist/` with `build_web.sh`, runs the browser E2E test (`web_e2e.sh`, blocks the deploy if it fails), and deploys to GitHub Pages. Set Pages Source to "GitHub Actions" in the repository settings.
-- **Web page** (issue #17): `web/main.js` shows the page; `web/worker.js` owns a `hcg_wasm::Session` in a Web Worker, so processing never freezes the page and Cancel simply terminates the worker. Flow: choose a zip → plan preview (`report::plan_report`, no decoding) → Optimize with progress → download `<name>_optimized.zip` and view the structured reports. From the plan, "Page overview (PDF)" downloads `<hcg name>_pages.pdf` (issue #19); a bare `.hcg` is accepted for that (the plan then lists the missing images). A Content-Security-Policy allows only the site's own files; the E2E test asserts that no request leaves the site. Data from the zip is inserted with `textContent` only.
+- **Web page** (issue #17): `web/main.js` shows the page; `web/worker.js` owns a `hcg_wasm::Session` in a Web Worker, so processing never freezes the page and Cancel simply terminates the worker. Flow: choose a zip → plan preview (`report::plan_report`, no decoding) → Optimize with progress → download `<name>_optimized.zip` and view the structured reports. The page is Korean (issue #21): after a file is chosen it shows a summary line and two equal cards, image optimization and page PDF (`<hcg name>_pages.pdf`, issue #19), then the items to check. A bare `.hcg` is accepted (the optimize card explains why there is nothing to shrink). The session takes `"language":"ko"` in its settings, so plans, reports, error messages and `점검결과.txt` come from Rust in Korean. It prepares the page thumbnails once (deflated, ≈ 1 MB for 133 pages) and keeps them, so the PDF still works after optimizing without keeping the hcg. A Content-Security-Policy allows only the site's own files; the E2E test asserts that no request leaves the site. Data from the zip is inserted with `textContent` only.
 - **CLI** (`hcg-optimizer`, issue #15): for development and testing only; not distributed. `cargo run -p hcg-cli -- <zip or .hcg> [-o out.zip] [--dry-run] [--json] [--force] [--max-size WxH] [--max-bytes SIZE] [--quality Q] [--min-quality Q]`; `--pdf [--per-sheet 6|12|20] [-o out.pdf]` writes the page overview instead (`<hcg name>_pages.pdf` next to the input by default). It never overwrites the input, refuses an existing output without `--force`, writes through a temporary file, and exits with 0 (ok), 1 (a bundle failed / no hcg), 2 (usage), 3 (I/O).

@@ -86,7 +86,7 @@ cargo run -p hcg-cli -- input.zip --pdf       # page overview PDF from the thumb
   - When adding a crate, register its layer in `LAYERS` in `project/scripts/check_layers.py`. Preflight fails otherwise.
 - **Errors:** libraries return `Result<T, Error>`. Errors carry **the file offset and context** (`"SafeBMP magic mismatch at 0x1234"`). `unwrap()`/`expect()` only in tests. Never end processing with a panic.
 - **Format code:** annotate offset constants with the HCG_FORMAT.md section and offset (e.g. `// §6.2 SafeBMP +0x10 flag`). Fields of unknown meaning are not interpreted; keep them as raw bytes.
-- **Language:** everything in the repository is written in English: code, comments, docs, scripts, commit messages, and user-facing strings (report, web page, CLI messages).
+- **Language:** everything in the repository is written in English (code, comments, docs, scripts, commit messages, CLI messages, the English report), **except** what users of the web page read: the web page (`web/`), the Korean report text (`crates/hcg-app/src/report/ko.rs`), and the session messages shown on the page. Those are Korean, formal and concise (합니다체, instructions in 하십시오체, no emoji), with the conclusion and the action first (issue #21).
 - **Tests:** new format-handling code gets roundtrip tests based on `project/samples`. Computed values such as image IDs are tested against real sample folder file names.
 - **Dependencies:** before adding one, check it builds for WASM (pure Rust) and record why in `project/docs/DEPENDENCIES.md`. Versions are managed in the workspace `Cargo.toml`.
 - **Commits:** keep them small; messages say what changed and why.
