@@ -39,7 +39,10 @@ summary { cursor: pointer; color: var(--muted); }
 .error { background: var(--bad-bg); color: var(--bad); border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
 .headline { font-weight: 600; font-size: 1.05rem; }
 
-.actions { margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+.actions { margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.actions label.inline { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+select { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px;
+         background: var(--bg); color: var(--fg); }
 button, .button { font: inherit; padding: 8px 18px; border-radius: 8px; border: 1px solid var(--line);
                   background: var(--panel); color: var(--fg); cursor: pointer; text-decoration: none; }
 button.primary, .button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }

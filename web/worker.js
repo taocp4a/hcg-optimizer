@@ -1,7 +1,9 @@
 // Web Worker (issue #17): owns the WASM session so the page never freezes. Messages:
-//   in:  {type:"version"} | {type:"open", buffer, settings} | {type:"optimize"}
+//   in:  {type:"version"} | {type:"open", buffer, name, settings} | {type:"optimize"}
+//        | {type:"overview", index, settings}
 //   out: {type:"version", version} | {type:"plan", plan} | {type:"progress", done, total, name}
-//        | {type:"done", zip, reports} | {type:"error", message}
+//        | {type:"done", zip, reports} | {type:"overview", index, pdf}
+//        | {type:"error", message} | {type:"overview-error", message}
 import init, { Session, version } from "./pkg/hcg_wasm.js";
 
 const ready = init();
@@ -26,7 +28,7 @@ self.onmessage = async (event) => {
     } else if (msg.type === "open") {
       if (session) session.free();
       session = null;
-      session = new Session(new Uint8Array(msg.buffer), msg.settings);
+      session = new Session(new Uint8Array(msg.buffer), msg.name, msg.settings);
       self.postMessage({ type: "plan", plan: JSON.parse(session.planJson()) });
     } else if (msg.type === "optimize") {
       const zip = session.optimize((done, total, name) => {
@@ -34,8 +36,13 @@ self.onmessage = async (event) => {
       });
       const reports = JSON.parse(session.reportsJson());
       self.postMessage({ type: "done", zip: zip.buffer, reports }, [zip.buffer]);
+    } else if (msg.type === "overview") {
+      const pdf = session.overviewPdf(msg.index, msg.settings);
+      self.postMessage({ type: "overview", index: msg.index, pdf: pdf.buffer }, [pdf.buffer]);
     }
   } catch (err) {
-    self.postMessage({ type: "error", message: describe(err) });
+    // An overview failure leaves the plan usable; anything else ends the current step.
+    const type = msg.type === "overview" ? "overview-error" : "error";
+    self.postMessage({ type, message: describe(err) });
   }
 };

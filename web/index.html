@@ -23,11 +23,13 @@
         <li>Choose the zip below, check the plan, and press <b>Optimize</b>.</li>
         <li>Download the result and open the <code>.hcg</code> inside it in ez-CGER. Keep your original files.</li>
       </ol>
+      <p class="muted">Want a printable overview of all pages? A single <code>.hcg</code> is enough: choose it and press
+        <b>Page overview (PDF)</b>.</p>
     </section>
 
     <label id="drop" class="drop" tabindex="0">
-      <input id="file" type="file" accept=".zip,application/zip">
-      <span id="drop-text">Drop a zip here, or click to choose one</span>
+      <input id="file" type="file" accept=".zip,.hcg,application/zip">
+      <span id="drop-text">Drop a zip (or a single .hcg) here, or click to choose one</span>
     </label>
 
     <details id="advanced">
@@ -54,6 +56,11 @@
       <div id="plan-body"></div>
       <div class="actions">
         <button id="optimize" type="button" class="primary">Optimize</button>
+        <label class="inline">Page overview: <select id="per-sheet">
+          <option value="6">6 pages per sheet</option>
+          <option value="12" selected>12 pages per sheet</option>
+          <option value="20">20 pages per sheet</option>
+        </select></label>
       </div>
     </section>
 

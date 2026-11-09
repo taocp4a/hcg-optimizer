@@ -26,7 +26,7 @@ SERVER=$!
 trap 'kill $SERVER' EXIT
 sleep 1
 
-RESULT=$(node "$ROOT/project/scripts/web_e2e.js" "http://127.0.0.1:$PORT/" "$OUT/speedtest.zip" "$OUT")
+RESULT=$(node "$ROOT/project/scripts/web_e2e.js" "http://127.0.0.1:$PORT/" "$OUT/speedtest.zip" "$OUT" "$ROOT/project/samples/speedtest.hcg")
 echo "$RESULT"
 SAVED=$(echo "$RESULT" | sed -n 's/^SAVED //p')
 

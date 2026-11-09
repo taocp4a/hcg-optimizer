@@ -15,16 +15,17 @@ pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-/// One zip: `new Session(bytes, settingsJson)` reads and plans it; `optimize(onProgress)`
-/// returns the output zip.
+/// One file: `new Session(bytes, fileName, settingsJson)` reads and plans a zip (or a bare
+/// `.hcg`); `overviewPdf(index, json)` draws a page overview; `optimize(onProgress)` returns the
+/// output zip.
 #[wasm_bindgen]
 pub struct Session(session::SessionCore);
 
 #[wasm_bindgen]
 impl Session {
     #[wasm_bindgen(constructor)]
-    pub fn new(zip: Vec<u8>, settings_json: &str) -> Result<Session, JsError> {
-        session::SessionCore::new(zip, settings_json)
+    pub fn new(bytes: Vec<u8>, file_name: &str, settings_json: &str) -> Result<Session, JsError> {
+        session::SessionCore::open(bytes, file_name, settings_json)
             .map(Session)
             .map_err(|e| JsError::new(&e))
     }
@@ -33,6 +34,14 @@ impl Session {
     #[wasm_bindgen(js_name = planJson)]
     pub fn plan_json(&self) -> String {
         self.0.plan_json().to_string()
+    }
+
+    /// The page overview PDF of the `index`-th hcg; `settings_json` like `{"per_sheet":12}`.
+    #[wasm_bindgen(js_name = overviewPdf)]
+    pub fn overview_pdf(&self, index: usize, settings_json: &str) -> Result<Vec<u8>, JsError> {
+        self.0
+            .overview_pdf(index, settings_json)
+            .map_err(|e| JsError::new(&e))
     }
 
     /// Shrinks images; calls `on_progress(done, total, fileName)` before each image.
