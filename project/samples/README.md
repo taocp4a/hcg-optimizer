@@ -1,6 +1,6 @@
 # Sample files
 
-All test `.hcg` files live flat in this folder. An image folder sits next to an hcg when it has the same name (`v07_image.hcg` + `v07_image/`), the way the app saves it. Every file is format version 0x78 and was made with ez-CGER 2.10.65, either directly in the app or by changing one to three fields of an app-made file.
+All test `.hcg` files live flat in this folder. An image folder sits next to an hcg when it has the same name (`v07_image.hcg` + `v07_image/`), the way the app saves it (see HCG_FORMAT.md §6.2, *Saving*). Every file is format version 0x78 and was made with ez-CGER 2.10.65, either directly in the app or by changing one to three fields of an app-made file.
 
 The tests use **all** `*.hcg` files here:
 - `project/scripts/reference_roundtrip.sh`: the Python reference must read and re-write each file byte-identically.
