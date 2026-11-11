@@ -102,7 +102,7 @@ Each warning: `code`, `message` (a sentence in the report's language), `file` (f
 
 | `code` | When |
 |---|---|
-| `missing_image` | a referenced file is not in the image folder (ez-CGER can show it only where the original path exists) |
+| `missing_image` | a referenced file is not in the image folder (the playback PC reads it from the original path, which may fail or be slow) |
 | `not_supported_by_app` | a referenced file is WebP, HEIC or unknown |
 | `over_size_limit` | still over the size limit after shrinking, or kept because re-saving would not help |
 | `undecodable` | a referenced file could not be read |

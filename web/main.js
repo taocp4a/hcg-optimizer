@@ -222,13 +222,14 @@ function renderPdfCard(readable) {
   $("pdf-note").textContent = "";
 }
 
-// Items to check for one bundle (plan or report): failure with its advice, then warnings. A
-// missing image folder gets one action line instead of repeating it per file.
+// Items to check for one bundle (plan or report): failure with its advice, then warnings. Only
+// when the input had no image folder at all does it get an action line; otherwise a missing image
+// is just reported with its original path (the cause is not ours to guess).
 function checkItems(b) {
   const items = [];
   if (b.failure) items.push({ text: `${b.bundle.hcg_path}: ${b.failure.message}`, action: b.failure.advice });
   const warnings = b.warnings.filter((w) => !b.failure || w.code !== b.failure.code);
-  if (warnings.some((w) => w.code === "missing_image")) {
+  if (b.bundle.folder_path == null && warnings.some((w) => w.code === "missing_image")) {
     items.push({ action: "hcg 파일과 이미지 폴더를 함께 압축하여 다시 선택하십시오.", strong: true });
   }
   for (const w of warnings) items.push({ text: w.message });

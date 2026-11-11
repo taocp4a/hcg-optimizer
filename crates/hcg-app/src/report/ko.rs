@@ -26,7 +26,8 @@ pub(super) fn failure_message(code: &str, detail: &str) -> String {
 
 pub(super) fn missing(path: &str, used: &[UsedOn]) -> String {
     format!(
-        "{path}: 이미지 폴더에 없습니다({} 사용). 이 경로에 접근할 수 있는 PC에서만 표시됩니다.",
+        "{path}: 이미지 폴더에 없습니다({} 사용). 재생하는 PC가 이 경로에서 직접 읽으므로, 읽지 \
+         못하거나 느릴 수 있습니다.",
         pages(used)
     )
 }

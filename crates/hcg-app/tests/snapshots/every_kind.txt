@@ -38,7 +38,7 @@ Other files
 Warnings
   ! 3F8B560Bbg_1080_noise.jpg is still 101.3 KB (limit 97.7 KB) even at the lowest JPEG quality.
   ! 28BD2D7Emark_1.png is a WebP image, which ez-CGER does not support.
-  ! C:\test\mark_1.png (page 1, object 1) is not in the image folder. ez-CGER can still show it only on a PC where that path exists.
+  ! C:\test\mark_1.png (page 1, object 1) is not in the image folder. The playback PC reads it from this path, which may fail or be slow.
   ! Page 2 uses a left-to-right transition (2.0 s). On a slow PC transitions take longer than set; CUT avoids the delay.
 
 Limits: 1920x1080, 97.7 KB, JPEG quality 90 down to 50.
