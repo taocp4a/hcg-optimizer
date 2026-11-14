@@ -185,6 +185,13 @@ sub+4 is the **point count n**. For ver>=0xF it is `n × {i32 kind, i32 x, i32 y
 The app always seeks to `start + 0x20 + size` to read the next block.
 
 **Image lookup order [confirmed]:** ① `<hcg name>\<ID><file name>` ② the original absolute path ③ fallback paths -> dialog.
+When the folder file exists, the app opens only that file and never touches the original path: a file-access trace of ez-CGER 2.10.65.907 (under Wine) opening `speedtest.hcg` showed only `speedtest\<ID><file name>` being opened, both for the original and for this tool's output, where `bg_1080_noise.png` had become `3F8B560Bbg_1080_noise.jpg` (new extension, recomputed ID) [confirmed].
+
+**Saving [confirmed: ez-CGER 2.10.65.907 under Wine]:**
+- *Save as* to another folder creates `<new hcg name>\` next to the new file and copies the image-folder files there under the same names. Paths, stamps and IDs in the SafeBMP blocks are kept as they are, so a path rewritten by this tool (e.g. `.png` -> `.jpg`) stays rewritten.
+- Re-saving an unchanged file rewrites only FileHeader 0x0C–0x27 (§2); in the test, all other bytes of this tool's output were identical.
+- Saving does not regenerate page thumbnails of unchanged pages.
+- Not yet checked: whether a re-save removes image-folder files no longer used, and what happens when an original path is unreachable and the folder file is missing.
 
 ### 6.2b Embedded images (flag 0)
 The payload is **the original image file bytes as is** (no extra header). PNG, JPG, and BMP all load [confirmed]. As warned above, re-saving in the app drops them, so this tool never creates them.
@@ -227,6 +234,7 @@ For reference, the layout changes at these version boundaries: 0x15 (sequence ta
 Image/video position · size · rotation -> 0x00/0x0C/0x08 · Alpha -> 0x27 · sequence -> tail i32×4 · text font/colour/border -> RichText + 0x30/0x34/0x44–0x4C · scroll -> 0xAC/0x50/0xC8/0xCC · skin -> 0x90/0x94/0x98 · shape colour/width -> 0x20/0x24/0x28 · gradient -> 0x58/0x5C/0x60 · shadow -> 0x80–0x8C · PIP -> 0x68–0x7C/0x54/0x64 · lock -> 0xE9 · layers (Overlay/Contents/Background) -> global layer (Background) + page layer · transition effect (CUT/MIX/left-right-up-down, 0.5–3 s) -> page hdr 0x24–0x2C. Template and Bible features have no dedicated fields (templates copy page content).
 
 ## 9. Open questions
+- Display: that images shrunk by this tool (JPEG, PNG with alpha) are drawn correctly and that transitions get faster. The Wine test could not render the editor canvas (no GPU), so this needs a real Windows PC.
 - Unknown record fields: 0x38, 0xA0, 0xB0, 0xD0–0xE7, 0xEC, and the purpose of the i32 array after 0xF0.
 - Exact meaning of RichText character-record fields b0, b2, b3, b5, b6, +0x1C, +0x20.
 - Meaning of 0x48 = −1 (probably "use parent value").
