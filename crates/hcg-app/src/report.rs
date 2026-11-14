@@ -396,8 +396,8 @@ fn missing_entries(
     for entry in &missing {
         let message = match language {
             Language::En => format!(
-                "{} ({}) is not in the image folder. ez-CGER can still show it only on a PC \
-                 where that path exists.",
+                "{} ({}) is not in the image folder. The playback PC reads it from this path, \
+                 which may fail or be slow.",
                 entry.path,
                 places(&entry.used_on)
             ),

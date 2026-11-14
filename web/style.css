@@ -31,7 +31,27 @@ code { font-size: 0.92em; }
 
 details { margin: 8px 0; }
 summary { cursor: pointer; color: var(--muted); }
-.howto { margin: 8px 0; padding-left: 1.3em; }
+.guide { border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 0 0 14px;
+         display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; align-items: center; }
+.guide h2 { margin: 0 0 6px; font-size: 1rem; }
+.guide p { margin: 4px 0; }
+.howto { margin: 6px 0; padding-left: 1.4em; }
+.howto li { margin: 5px 0; }
+.guide-picture { display: flex; gap: 10px; align-items: center; background: var(--panel); border-radius: 8px;
+                 padding: 12px 14px; font-size: 0.86rem; }
+.tree { flex: 1 1 0; min-width: 0; }
+.tree-title { font-weight: 600; margin: 0 0 4px; }
+.tree ul { list-style: none; margin: 0; padding-left: 14px; border-left: 1px solid var(--line); }
+.tree > ul { margin-left: 4px; }
+.tree li { margin: 3px 0; }
+.tree .name { display: inline-block; padding: 1px 6px; border-radius: 4px; word-break: break-all; }
+.tree i { font-style: normal; color: var(--muted); }
+.tree li.pick > .name { background: var(--card); outline: 2px solid var(--accent); font-weight: 600; }
+.tree li.other > .name { color: var(--muted); }
+.tag-pick { margin-left: 6px; padding: 0 6px; border-radius: 4px; font-size: 0.8em; font-weight: 600;
+            background: var(--accent); color: var(--accent-fg); }
+.tree-arrow { font-size: 1.3rem; color: var(--muted); }
+@media (max-width: 760px) { .guide { grid-template-columns: 1fr; } }
 .settings { display: grid; gap: 10px; padding: 10px 0 0; }
 .settings label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
                   max-width: 480px; }

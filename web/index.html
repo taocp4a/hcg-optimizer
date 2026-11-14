@@ -11,27 +11,58 @@
 </head>
 <body>
   <main>
-    <!-- Issue #21: Korean, formal, conclusion and actions first; details collapsed below. -->
+    <!-- Issue #21: Korean, formal, conclusion and actions first; settings and lists collapsed. -->
     <header>
       <h1>ez-CGER 이미지 최적화</h1>
       <p class="lead">페이지 전환 지연을 줄이도록 이미지 용량을 줄이고, 전체 페이지를 PDF로 출력합니다.</p>
     </header>
+
+    <!-- Making the zip is the step every user must do first, so it is always visible: short
+         steps on the left, a picture of what to select and what the zip holds on the right. -->
+    <section class="guide" aria-label="사용 방법">
+      <div class="guide-steps">
+        <h2>사용 방법</h2>
+        <ol class="howto">
+          <li><b>hcg 파일</b>과 <b>같은 이름의 폴더</b>를 함께 선택하십시오.</li>
+          <li>마우스 오른쪽 버튼 → [ZIP 파일로 압축]을 누르십시오.</li>
+          <li>만들어진 zip 파일을 아래에 놓으십시오.</li>
+        </ol>
+        <p class="muted small">페이지 PDF만 필요하면 hcg 파일 하나만 놓아도 됩니다.</p>
+      </div>
+      <div class="guide-picture" aria-label="선택할 항목과 zip 파일의 구성">
+        <div class="tree">
+          <p class="tree-title">내 컴퓨터의 예배 폴더</p>
+          <ul>
+            <li class="pick"><span class="name">주일예배.hcg</span><span class="tag-pick">선택</span></li>
+            <li class="pick"><span class="name">주일예배 <i>(폴더)</i></span><span class="tag-pick">선택</span>
+              <ul>
+                <li><span class="name">28BD2D7E배경.png</span></li>
+                <li><span class="name">74EB6CEB로고.png …</span></li>
+              </ul>
+            </li>
+            <li class="other"><span class="name">다른 파일 <i>(선택하지 않음)</i></span></li>
+          </ul>
+        </div>
+        <div class="tree-arrow" aria-hidden="true">→</div>
+        <div class="tree">
+          <p class="tree-title">주일예배.zip</p>
+          <ul>
+            <li><span class="name">주일예배.hcg</span></li>
+            <li><span class="name">주일예배 <i>(폴더)</i></span>
+              <ul>
+                <li><span class="name">이미지 파일들</span></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
     <label id="drop" class="drop" tabindex="0">
       <input id="file" type="file" accept=".zip,.hcg,application/zip">
       <span id="drop-text">파일을 끌어다 놓거나 클릭하여 선택 (.zip, .hcg)</span>
     </label>
     <p class="muted small">파일은 외부로 전송되지 않으며 이 컴퓨터에서만 처리됩니다.</p>
-
-    <details>
-      <summary>zip 파일 만드는 방법</summary>
-      <ol class="howto">
-        <li>hcg 파일과 같은 이름의 이미지 폴더를 함께 선택하십시오. (예: <code>주일예배.hcg</code>와 <code>주일예배</code> 폴더)</li>
-        <li>선택한 항목에서 마우스 오른쪽 버튼을 누르고 [압축(ZIP) 폴더] 또는 [ZIP 파일로 압축]을 선택하십시오.</li>
-        <li>만들어진 zip 파일을 위 영역에 놓으십시오.</li>
-      </ol>
-      <p class="muted small">페이지 PDF만 필요하면 hcg 파일 하나만 놓아도 됩니다.</p>
-    </details>
 
     <details id="advanced">
       <summary>고급 설정</summary>
